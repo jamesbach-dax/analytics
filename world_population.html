@@ -7,7 +7,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
 <script src="https://unpkg.com/chartjs-chart-geo@4.3.0/build/index.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -268,7 +267,6 @@ footer a { color:var(--accent1);text-decoration:none; }
     </div>
 
     <h2 class="section-title" style="color:var(--accent1)">① Descriptive Insights</h2>
-    <p class="section-sub">Understanding where we are and how we got here based on historical data.</p>
     
     <div class="grid grid-2">
       <div class="card"><div class="card-title" id="dt1"></div><div class="card-note" id="dn1"></div><div class="chart-wrap" style="height: 260px;"><canvas id="c_pop"></canvas></div></div>
@@ -291,7 +289,6 @@ footer a { color:var(--accent1);text-decoration:none; }
     </div>
 
     <h2 class="section-title" style="color:var(--accent4)">② Predictive Insights</h2>
-    <p class="section-sub">UN Medium-Variant Projections (2024 Revision)</p>
     
     <div class="grid grid-2">
       <div class="card"><div class="card-title" id="pt1"></div><div class="chart-wrap" style="height: 280px;"><canvas id="c_proj"></canvas></div></div>
@@ -303,17 +300,16 @@ footer a { color:var(--accent1);text-decoration:none; }
     </div>
 
     <h2 class="section-title" style="color:var(--accent2)">③ Prescriptive Insights</h2>
-    <p class="section-sub">Population × Policy Intersections (Hover over bubbles to explore data)</p>
 
     <div class="grid grid-2">
       <div class="card">
-        <div class="card-title">Urbanization vs Air Pollution</div>
+        <div class="card-title">The Environmental Kuznets Curve</div>
         <div class="card-note">Urbanization Rate (%) vs PM 2.5 Pollution. Bubble size = Population</div>
         <div class="chart-wrap" style="height: 300px;"><canvas id="c_urb_pm25"></canvas></div>
       </div>
       <div class="card">
         <div class="card-title">GDP per Capita vs Fertility</div>
-        <div class="card-note">Income–fertility inverse relationship</div>
+        <div class="card-note">Dashed line indicates 2.1 Replacement Rate</div>
         <div class="chart-wrap" style="height: 300px;"><canvas id="c_gdp"></canvas></div>
       </div>
     </div>
@@ -321,7 +317,7 @@ footer a { color:var(--accent1);text-decoration:none; }
     <div class="grid grid-2">
       <div class="card">
         <div class="card-title">Female Education vs Fertility</div>
-        <div class="card-note">Mean years of schooling (female) vs births/woman</div>
+        <div class="card-note">Dashed line indicates 2.1 Replacement Rate</div>
         <div class="chart-wrap" style="height: 280px;"><canvas id="c_edu"></canvas></div>
       </div>
       <div class="card">
@@ -344,7 +340,6 @@ footer a { color:var(--accent1);text-decoration:none; }
       </div>
     </div>
 
-  </main>
 
   <footer>
     <h3>Data Sources & References</h3>
@@ -357,22 +352,13 @@ footer a { color:var(--accent1);text-decoration:none; }
 </div>
 
 <script>
-// Register Geo Plugin if available
-if (window.ChartGeo && window.topojson) {
-  Chart.register(ChartGeo.ChoroplethController, ChartGeo.GeoFeature, ChartGeo.ColorScale, ChartGeo.ProjectionScale);
-}
-// Register DataLabels Plugin for the Pie Charts
-Chart.register(ChartDataLabels);
-
+// ═══ CHART.JS INITIALIZATION ═══
 Chart.defaults.color='#8892a4';
 Chart.defaults.borderColor='#2a3142';
 Chart.defaults.font.family="'DM Sans',sans-serif";
 Chart.defaults.font.size=11;
 Chart.defaults.plugins.legend.labels.boxWidth=12;
 Chart.defaults.plugins.legend.labels.padding=14;
-
-// Globally disable the datalabels plugin so it doesn't print numbers on every line/bar chart automatically.
-Chart.defaults.plugins.datalabels = { display: false };
 
 const C={teal:'#4ecdc4',red:'#ff6b6b',yellow:'#ffd93d',purple:'#6c5ce7',green:'#a8e6cf',blue:'#74b9ff',orange:'#fdcb6e',pink:'#fd79a8',tealA:'rgba(78,205,196,0.15)',redA:'rgba(255,107,107,0.15)',purpleA:'rgba(108,92,231,0.15)',yellowA:'rgba(255,217,61,0.15)'};
 let ch={};
@@ -383,14 +369,12 @@ function mc(id,cfg){
   ch[id]=new Chart(document.getElementById(id),cfg);
 }
 
-// State unified for all charts
 let S={ r:'World', dLo:1800, dHi:2024, pLo:2024, pHi:2100 };
 
-// Filter by range helpers
 function fR(labels,...arrs){const ix=[];labels.forEach((l,i)=>{if(l>=S.dLo&&l<=S.dHi)ix.push(i);});return{l:ix.map(i=>labels[i]),d:arrs.map(a=>ix.map(i=>a[i]))};}
 function fP(labels,...arrs){const ix=[];labels.forEach((l,i)=>{if(l>=S.pLo&&l<=S.pHi)ix.push(i);});return{l:ix.map(i=>labels[i]),d:arrs.map(a=>ix.map(i=>a[i]))};}
 
-// ═══ DATA ═══
+// ═══ DATA OBJECT ═══
 const D={
 desc:{
 World:{k:['World Population (2024)','8.16 B','+0.88% vs 2023','Fertility Rate','2.25','↓ from 4.97 in 1960','Urbanization','57%','↑ from 34% in 1960','Median Age','30.5','↑ from 23.6 in 1950'],
@@ -489,8 +473,8 @@ World:{
       {l:'Australia', x:86, y:9.3, r:3.0, reg:'Oceania', c:'rgba(168,230,207,0.7)'}
   ],
   gdp:[{l:'Ethiopia', x:1000, y:4.1, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Egypt', x:3000, y:2.8, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'South Africa', x:6000, y:2.3, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Nigeria', x:2000, y:5.1, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'China', x:12500, y:1.2, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Japan', x:39000, y:1.3, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'S. Korea', x:32000, y:0.8, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Bangladesh', x:2500, y:1.9, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'India', x:2300, y:2.0, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Pakistan', x:1500, y:3.5, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Indonesia', x:4300, y:2.1, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Philippines', x:3500, y:2.4, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Vietnam', x:3700, y:1.9, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Singapore', x:72000, y:1.1, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Russia', x:12000, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'UK', x:45000, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Italy', x:35000, y:1.2, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'France', x:43000, y:1.8, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Germany', x:50000, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Mexico', x:10000, y:1.9, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Brazil', x:7500, y:1.6, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Canada', x:52000, y:1.4, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'USA', x:70000, y:1.6, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Australia', x:60000, y:1.6, reg:'Oceania', c:'rgba(168,230,207,0.7)'}],
-  edu:[{l:'Ethiopia', x:3.0, y:4.1, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Egypt', x:7.0, y:2.8, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'South Africa', x:10.0, y:2.3, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Nigeria', x:5.0, y:5.1, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'China', x:9.0, y:1.2, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Japan', x:12.0, y:1.3, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'S. Korea', x:12.5, y:0.8, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Bangladesh', x:6.5, y:1.9, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'India', x:7.5, y:2.0, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Pakistan', x:4.5, y:3.5, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Indonesia', x:8.5, y:2.1, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Philippines', x:9.5, y:2.4, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Vietnam', x:8.5, y:1.9, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Singapore', x:12.5, y:1.1, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Russia', x:11.5, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'UK', x:13.0, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Italy', x:12.0, y:1.2, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'France', x:12.5, y:1.8, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Germany', x:13.0, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Mexico', x:9.5, y:1.9, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Brazil', x:10.0, y:1.6, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Canada', x:13.5, y:1.4, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'USA', x:13.5, y:1.6, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Australia', x:13.0, y:1.6, reg:'Oceania', c:'rgba(168,230,207,0.7)'}],
-  hlt:[{l:'Ethiopia', x:35, y:65, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Egypt', x:150, y:70, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'South Africa', x:500, y:65, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Nigeria', x:75, y:55, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'China', x:900, y:78, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Japan', x:4000, y:84, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'S. Korea', x:2500, y:83, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Bangladesh', x:45, y:72, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'India', x:70, y:70, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Pakistan', x:40, y:67, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Indonesia', x:120, y:71, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Philippines', x:130, y:71, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Vietnam', x:150, y:75, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Singapore', x:3000, y:83, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Russia', x:600, y:73, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'UK', x:4000, y:81, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Italy', x:3000, y:83, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'France', x:4500, y:82, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Germany', x:5000, y:81, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Mexico', x:500, y:75, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Brazil', x:800, y:75, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Canada', x:5000, y:82, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'USA', x:11000, y:78, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Australia', x:5000, y:83, reg:'Oceania', c:'rgba(168,230,207,0.7)'}],
+  edu: [{l:'Ethiopia', x:3.0, y:4.1, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Egypt', x:7.0, y:2.8, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'South Africa', x:10.0, y:2.3, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Nigeria', x:5.0, y:5.1, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'China', x:9.0, y:1.2, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Japan', x:12.0, y:1.3, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'S. Korea', x:12.5, y:0.8, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Bangladesh', x:6.5, y:1.9, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'India', x:7.5, y:2.0, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Pakistan', x:4.5, y:3.5, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Indonesia', x:8.5, y:2.1, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Philippines', x:9.5, y:2.4, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Vietnam', x:8.5, y:1.9, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Singapore', x:12.5, y:1.1, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Russia', x:11.5, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'UK', x:13.0, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Italy', x:12.0, y:1.2, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'France', x:12.5, y:1.8, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Germany', x:13.0, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Mexico', x:9.5, y:1.9, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Brazil', x:10.0, y:1.6, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Canada', x:13.5, y:1.4, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'USA', x:13.5, y:1.6, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Australia', x:13.0, y:1.6, reg:'Oceania', c:'rgba(168,230,207,0.7)'}],
+  hlt: [{l:'Ethiopia', x:35, y:65, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Egypt', x:150, y:70, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'South Africa', x:500, y:65, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Nigeria', x:75, y:55, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'China', x:900, y:78, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Japan', x:4000, y:84, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'S. Korea', x:2500, y:83, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Bangladesh', x:45, y:72, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'India', x:70, y:70, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Pakistan', x:40, y:67, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Indonesia', x:120, y:71, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Philippines', x:130, y:71, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Vietnam', x:150, y:75, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Singapore', x:3000, y:83, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Russia', x:600, y:73, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'UK', x:4000, y:81, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Italy', x:3000, y:83, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'France', x:4500, y:82, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Germany', x:5000, y:81, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Mexico', x:500, y:75, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Brazil', x:800, y:75, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Canada', x:5000, y:82, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'USA', x:11000, y:78, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Australia', x:5000, y:83, reg:'Oceania', c:'rgba(168,230,207,0.7)'}],
   mig: [
       {l:'Ethiopia', x:25.9, y:-0.1, reg:'Africa', c:'rgba(253,203,110,0.7)'},
       {l:'Egypt', x:15.5, y:2.7, reg:'Africa', c:'rgba(253,203,110,0.7)'},
@@ -778,12 +762,14 @@ function rOverview() {
       responsive: true, maintainAspectRatio: false, 
       plugins: { 
         legend: { position: 'bottom', labels: { color: '#e4e7ec', boxWidth: 10 } },
-        datalabels: {
-          display: true, color: '#fff', font: { weight: 'bold', size: 12, family: "'DM Sans', sans-serif" },
-          formatter: (value, ctx) => {
-            let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
-            let percentage = (value * 100 / sum).toFixed(1) + "%";
-            return (value / sum) > 0.03 ? percentage : '';
+        // Natively calculating and displaying percentages inside the hover tooltip
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let sum = context.dataset.data.reduce((a, b) => a + b, 0);
+              let percentage = (context.raw * 100 / sum).toFixed(1) + "%";
+              return ` ${context.label}: ${percentage} (${context.raw} B)`;
+            }
           }
         }
       } 
@@ -803,7 +789,7 @@ mc('c_ur',{type:'line',data:{labels:u.l,datasets:[{label:'Urban %',data:u.d[0],b
 const a=fR(d.aL,d.a0,d.a1,d.a2);$('dt4',`Age Structure — ${r}`);
 mc('c_age',{type:'bar',data:{labels:a.l,datasets:[{label:'0–14',data:a.d[0],backgroundColor:C.yellow},{label:'15–64',data:a.d[1],backgroundColor:C.blue},{label:'65+',data:a.d[2],backgroundColor:C.red}]},options:{responsive:true,scales:{x:{stacked:true},y:{stacked:true,max:100,title:{display:true,text:'% of total'}}}}});
 const f=fR(d.fL,d.fD);$('dt5',`Fertility Rate — ${r}`);
-mc('c_fert',{type:'line',data:{labels:f.l,datasets:[{label:'Births/woman',data:f.d[0],borderColor:C.purple,backgroundColor:C.purpleA,fill:true,tension:.3,pointRadius:4,pointBackgroundColor:C.purple},{label:'Replacement (2.1)',data:f.l.map(()=>2.1),borderColor:'rgba(255,255,255,0.2)',borderDash:[4,4],pointRadius:0,fill:false}]},options:{responsive:true,scales:{y:{title:{display:true,text:'Births/woman'},min:0}}}});
+mc('c_fert',{type:'line',data:{labels:f.l,datasets:[{label:'Births/woman',data:f.d[0],borderColor:C.purple,backgroundColor:C.purpleA,fill:true,tension:.3,pointRadius:4,pointBackgroundColor:C.purple},{label:'Replacement (2.1)',data:f.l.map(()=>2.1),borderColor:'rgba(255,255,255,0.5)',borderDash:[5,5],borderWidth:2,pointRadius:0,fill:false}]},options:{responsive:true,scales:{y:{title:{display:true,text:'Births/woman'},min:0}}}});
 const ed=fR(d.edL,d.edD);$('dt7',`Education Levels — ${r}`);
 mc('c_edu_desc',{type:'line',data:{labels:ed.l,datasets:[{label:'Mean Years of Schooling',data:ed.d[0],borderColor:C.green,backgroundColor:C.green+'33',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:C.green}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'Years'},min:0}}}});
 const gdp=fR(d.gdpL,d.gdpD);$('dt8',`GDP per Capita — ${r}`);
@@ -820,16 +806,12 @@ mc('c_gender',{
     responsive:true, maintainAspectRatio:false,
     plugins:{
       legend:{position:'bottom',labels:{color:'#e4e7ec',boxWidth:10}},
-      datalabels: {
-        display: true, color: '#fff', font: { weight: 'bold', size: 14, family: "'DM Sans', sans-serif" },
-        formatter: (value) => value + '%'
-      }
+      tooltip: { callbacks: { label: function(context) { return ` ${context.label}: ${context.raw}%`; } } }
     }
   }
 });
 
 $('dt6',`Top Countries — ${r} (2024)`);
-// HEIGHT OF THIS CHART CONTAINER NOW CONTROLS HOW TIGHT THE BARS ARE
 mc('c_top',{type:'bar',data:{labels:d.tL,datasets:[{data:d.tD,backgroundColor:d.tC}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'Millions'}}}}});
 }
 
@@ -841,8 +823,9 @@ const dp=fP(d.dL,d.dD);$('pt2',`Old-Age Dependency — ${r}`);
 mc('c_dep',{type:'line',data:{labels:dp.l,datasets:[{label:'%',data:dp.d[0],borderColor:C.teal,backgroundColor:C.tealA,fill:true,tension:.3,pointRadius:4,pointBackgroundColor:C.teal}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'65+ / 15–64 (%)'}}}}});
 $('pt3',`Age Distribution 2024 vs 2050 — ${r}`);
 mc('c_pyr',{type:'bar',data:{labels:d.yL,datasets:[{label:'2024',data:d.y24,backgroundColor:'rgba(78,205,196,0.6)'},{label:'2050',data:d.y50,backgroundColor:'rgba(108,92,231,0.5)'}]},options:{responsive:true,indexAxis:'y',scales:{x:{title:{display:true,text:'Millions'}}}}});
+
 const fp=fP(d.fL,d.fD);$('pt4',`Projected Fertility — ${r}`);
-mc('c_fp',{type:'line',data:{labels:fp.l,datasets:[{label:'Fertility',data:fp.d[0],borderColor:C.pink,backgroundColor:'rgba(253,121,168,0.12)',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:C.pink},{label:'Replacement',data:fp.l.map(()=>2.1),borderColor:'rgba(255,255,255,0.25)',borderDash:[4,4],pointRadius:0,fill:false}]},options:{responsive:true,scales:{y:{title:{display:true,text:'Births/woman'},min:0}}}});
+mc('c_fp',{type:'line',data:{labels:fp.l,datasets:[{label:'Fertility',data:fp.d[0],borderColor:C.pink,backgroundColor:'rgba(253,121,168,0.12)',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:C.pink},{label:'Replacement (2.1)',data:fp.l.map(()=>2.1),borderColor:'rgba(255,255,255,0.5)',borderDash:[5,5],borderWidth:2,pointRadius:0,fill:false}]},options:{responsive:true,scales:{y:{title:{display:true,text:'Births/woman'},min:0}}}});
 }
 
 // ═══ RENDER PRES ═══
@@ -861,15 +844,17 @@ function buildScatterOpts(xTitle, yTitle, xMin, xMax, yMin, yMax, xType='linear'
 }
 
 function rPres(r) {
-  // Helper to dynamically filter the World data if region-specific data is requested
   const getPresData = (key) => {
     const worldData = D.pres.World[key];
     if (r === 'World') return worldData;
-    return worldData.filter(item => item.reg === r);
+    if (worldData && worldData.length > 0) {
+      return worldData.filter(item => item.reg === r);
+    }
+    return [];
   };
 
   const urb_pm25 = getPresData('urb_pm25');
-  if (urb_pm25.length > 0) {
+  if (urb_pm25 && urb_pm25.length > 0) {
     mc('c_urb_pm25', {
       type: 'bubble',
       data: { datasets: urb_pm25.map(c => ({ label: c.l, data: [{x: c.x, y: c.y, r: c.r || 6}], backgroundColor: c.c })) },
@@ -878,25 +863,29 @@ function rPres(r) {
   } else if (ch['c_urb_pm25']) { ch['c_urb_pm25'].destroy(); }
 
   const gdp = getPresData('gdp');
-  if (gdp.length > 0) {
+  if (gdp && gdp.length > 0) {
+    const gdpDatasets = gdp.map(c => ({ label: c.l, data: [{x: c.x, y: c.y, r: 6}], backgroundColor: c.c }));
+    gdpDatasets.push({ type: 'line', label: 'Replacement (2.1)', data: [{x: 400, y: 2.1}, {x: 100000, y: 2.1}], borderColor: 'rgba(255,255,255,0.6)', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false });
     mc('c_gdp', {
       type: 'bubble',
-      data: { datasets: gdp.map(c => ({ label: c.l, data: [{x: c.x, y: c.y, r: 6}], backgroundColor: c.c })) },
+      data: { datasets: gdpDatasets },
       options: buildScatterOpts('GDP/capita (USD, log)', 'Fertility (Births/woman)', 400, 100000, 0, 6, 'logarithmic')
     });
   } else if (ch['c_gdp']) { ch['c_gdp'].destroy(); }
 
   const edu = getPresData('edu');
-  if (edu.length > 0) {
+  if (edu && edu.length > 0) {
+    const eduDatasets = edu.map(c => ({ label: c.l, data: [{x: c.x, y: c.y, r: 6}], backgroundColor: c.c }));
+    eduDatasets.push({ type: 'line', label: 'Replacement (2.1)', data: [{x: 0, y: 2.1}, {x: 15, y: 2.1}], borderColor: 'rgba(255,255,255,0.6)', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, fill: false });
     mc('c_edu', {
       type: 'bubble',
-      data: { datasets: edu.map(c => ({ label: c.l, data: [{x: c.x, y: c.y, r: 6}], backgroundColor: c.c })) },
+      data: { datasets: eduDatasets },
       options: buildScatterOpts('Female schooling (yrs)', 'Fertility (Births/woman)', 0, 15, 0, 6)
     });
   } else if (ch['c_edu']) { ch['c_edu'].destroy(); }
 
   const hlt = getPresData('hlt');
-  if (hlt.length > 0) {
+  if (hlt && hlt.length > 0) {
     mc('c_hlt', {
       type: 'bubble',
       data: { datasets: hlt.map(c => ({ label: c.l, data: [{x: c.x, y: c.y, r: 6}], backgroundColor: c.c })) },
@@ -905,7 +894,7 @@ function rPres(r) {
   } else if (ch['c_hlt']) { ch['c_hlt'].destroy(); }
 
   const mig = getPresData('mig');
-  if (mig.length > 0) {
+  if (mig && mig.length > 0) {
     mc('c_mig', {
       type: 'bubble',
       data: { datasets: mig.map(c => ({ label: c.l, data: [{x: c.x, y: c.y, r: 6}], backgroundColor: c.c })) },
@@ -914,7 +903,7 @@ function rPres(r) {
   } else if (ch['c_mig']) { ch['c_mig'].destroy(); } 
 
   const dem = getPresData('dem');
-  if (dem.length > 0) {
+  if (dem && dem.length > 0) {
     mc('c_dem', {
       type: 'bubble',
       data: { datasets: dem.map(c => ({ label: c.l, data: [{x: c.x, y: c.y, r: 6}], backgroundColor: c.c })) },
@@ -925,12 +914,18 @@ function rPres(r) {
 
 function $(id,html){document.getElementById(id).innerHTML=html;}
 
-// Init
-uFill('dFill',document.getElementById('dMin'),document.getElementById('dMax'),1800,2024);
-uFill('pFill',document.getElementById('pMin'),document.getElementById('pMax'),2024,2100);
-initRace();
-rOverview();
-rDesc('World');rPred('World');rPres('World');
+// ═══ INITIALIZATION (Wrapped in Try/Catch for max stability) ═══
+try {
+  uFill('dFill',document.getElementById('dMin'),document.getElementById('dMax'),1800,2024);
+  uFill('pFill',document.getElementById('pMin'),document.getElementById('pMax'),2024,2100);
+  initRace();
+  rOverview();
+  rDesc('World');
+  rPred('World');
+  rPres('World');
+} catch(e) {
+  console.error("Dashboard Initialization Error:", e);
+}
 </script>
 </body>
 </html>

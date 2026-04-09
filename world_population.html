@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>World Population: Insights & Outlook</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 <script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
 <script src="https://unpkg.com/chartjs-chart-geo@4.3.0/build/index.umd.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
@@ -303,7 +304,7 @@ footer a { color:var(--accent1);text-decoration:none; }
 
     <div class="grid grid-2">
       <div class="card">
-        <div class="card-title">Urbanization vs Air Pollution</div>
+        <div class="card-title">The Environmental Kuznets Curve</div>
         <div class="card-note">Urbanization Rate (%) vs PM 2.5 Pollution. Bubble size = Population</div>
         <div class="chart-wrap" style="height: 300px;"><canvas id="c_urb_pm25"></canvas></div>
       </div>
@@ -340,6 +341,7 @@ footer a { color:var(--accent1);text-decoration:none; }
       </div>
     </div>
 
+      </main>
 
   <footer>
     <h3>Data Sources & References</h3>
@@ -353,6 +355,7 @@ footer a { color:var(--accent1);text-decoration:none; }
 
 <script>
 // ═══ CHART.JS INITIALIZATION ═══
+Chart.register(ChartDataLabels); // Register DataLabels Plugin
 Chart.defaults.color='#8892a4';
 Chart.defaults.borderColor='#2a3142';
 Chart.defaults.font.family="'DM Sans',sans-serif";
@@ -366,6 +369,13 @@ let ch={};
 function mc(id,cfg){
   if(ch[id]) ch[id].destroy();
   if(cfg.options) cfg.options.maintainAspectRatio = false;
+  
+  // Disable datalabels by default for all charts to prevent it from showing on line/bar charts
+  if (!cfg.options.plugins) cfg.options.plugins = {};
+  if (!cfg.options.plugins.datalabels) {
+    cfg.options.plugins.datalabels = { display: false };
+  }
+
   ch[id]=new Chart(document.getElementById(id),cfg);
 }
 
@@ -761,8 +771,19 @@ function rOverview() {
     options: { 
       responsive: true, maintainAspectRatio: false, 
       plugins: { 
+        datalabels: {
+          color: '#ffffff',
+          font: { weight: 'bold', size: 12 },
+          formatter: (value, context) => {
+            let sum = context.dataset.data.reduce((a, b) => a + b, 0);
+            return (value * 100 / sum).toFixed(1) + "%";
+          },
+          display: function(context) {
+            // Hide the label on extremely thin slices (like Oceania) to prevent overlap
+            return context.dataset.data[context.dataIndex] > 0.1;
+          }
+        },
         legend: { position: 'bottom', labels: { color: '#e4e7ec', boxWidth: 10 } },
-        // Natively calculating and displaying percentages inside the hover tooltip
         tooltip: {
           callbacks: {
             label: function(context) {
@@ -805,6 +826,11 @@ mc('c_gender',{
   options:{
     responsive:true, maintainAspectRatio:false,
     plugins:{
+      datalabels: {
+        color: '#ffffff',
+        font: { weight: 'bold', size: 12 },
+        formatter: (value) => value + '%'
+      },
       legend:{position:'bottom',labels:{color:'#e4e7ec',boxWidth:10}},
       tooltip: { callbacks: { label: function(context) { return ` ${context.label}: ${context.raw}%`; } } }
     }

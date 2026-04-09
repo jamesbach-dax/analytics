@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Population: Insights & Outlook</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<script src="https://unpkg.com/chartjs-chart-geo@4.3.0/build/index.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0c0f14;
+  --surface: #151922;
+  --surface2: #1c2230;
+  --border: #2a3142;
+  --text: #e4e7ec;
+  --text-muted: #8892a4;
+  --accent1: #4ecdc4;
+  --accent2: #ff6b6b;
+  --accent3: #ffd93d;
+  --accent4: #6c5ce7;
+  --sidebar-width: 280px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; line-height:1.6; overflow-x:hidden; }
+
+.noise {
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:9999;
+}
+
+/* Sidebar Layout */
+.sidebar {
+  position: fixed; top: 0; left: 0; width: var(--sidebar-width); height: 100vh;
+  background: var(--surface); border-right: 1px solid var(--border); padding: 40px 24px;
+  overflow-y: auto; z-index: 100; display: flex; flex-direction: column;
+}
+
+.main-content { margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); }
+
+header { padding:50px 40px 30px; max-width:1400px; margin:0 auto; position:relative; }
+header::before {
+  content:'';position:absolute;top:-200px;right:-200px;width:600px;height:600px;
+  background:radial-gradient(circle,rgba(78,205,196,0.08)0%,transparent 70%);pointer-events:none;
+}
+h1 {
+  font-family:'DM Serif Display',serif;font-size:3rem;letter-spacing:-0.02em;margin-bottom:8px;
+  background:linear-gradient(135deg,#fff 40%,var(--accent1));-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+header p { color:var(--text-muted); font-size:1.05rem; max-width:700px; font-weight:300; }
+
+.tag { display:inline-block;padding:4px 14px;border-radius:20px;font-size:0.72rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:14px; }
+.tag-desc { background:rgba(78,205,196,0.15);color:var(--accent1); }
+
+main { max-width:1400px; margin:0 auto; padding:0 40px 80px; }
+
+.section-title { font-family:'DM Serif Display',serif; font-size:1.8rem; margin:60px 0 6px; padding-top:30px; border-top:1px solid var(--border); }
+.section-sub { color:var(--text-muted); margin-bottom:24px; font-weight:300; }
+
+/* Filter controls */
+.filter-bar.vertical { display:flex; flex-direction: column; gap:10px; align-items: stretch; }
+.filter-btn {
+  padding:10px 16px; border-radius:12px; border:1px solid var(--border);
+  background:transparent; color:var(--text-muted); font-size:0.85rem; font-weight:600;
+  font-family:'DM Sans',sans-serif; cursor:pointer; transition:all 0.25s; letter-spacing:0.03em; text-align: left;
+}
+.filter-btn:hover { border-color:var(--accent1); color:var(--text); background: rgba(78,205,196,0.05); }
+.filter-btn.active { background:var(--accent1); color:var(--bg); border-color:var(--accent1); }
+
+/* Timelines */
+.timeline-wrap { display:flex; flex-direction: column; gap:12px; margin-bottom:30px; }
+.timeline-label { font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; }
+.range-container { position:relative; height:30px; width: 100%; margin-top: 5px; }
+.range-track { position:absolute; top:50%; transform:translateY(-50%); left:0; right:0; height:4px; background:var(--border); border-radius:2px; pointer-events:none; }
+.range-fill { position:absolute; top:50%; transform:translateY(-50%); height:4px; border-radius:2px; pointer-events:none; }
+.range-fill.f-desc { background:var(--accent1); }
+.range-fill.f-pred { background:var(--accent4); }
+.range-container input[type=range] {
+  position:absolute; top:0; left:0; width:100%; height:30px;
+  -webkit-appearance:none; appearance:none; background:transparent; pointer-events:none; margin:0;
+}
+.range-container input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+  background:var(--text); border:3px solid var(--accent1); cursor:pointer;
+  pointer-events:all; position:relative; z-index:2;
+  box-shadow:0 2px 8px rgba(0,0,0,0.5); transition:transform 0.15s;
+}
+.range-container input[type=range]::-webkit-slider-thumb:hover { transform:scale(1.15); }
+.year-display { font-family:'DM Serif Display',serif; font-size:1.1rem; text-align:left; }
+.yr1 { color:var(--accent1); }
+.yr2 { color:var(--accent4); }
+.sep { color:var(--text-muted); margin:0 4px; }
+
+/* Grid & Cards */
+.grid { display:grid; gap:24px; margin-bottom:30px; }
+.grid-2 { grid-template-columns:1fr 1fr; }
+.card {
+  background:var(--surface); border:1px solid var(--border); border-radius:16px;
+  padding:28px; position:relative; overflow:hidden; transition:border-color 0.3s;
+}
+.card:hover { border-color:rgba(78,205,196,0.3); }
+.card-title { font-weight:600; font-size:0.95rem; margin-bottom:4px; }
+.card-note { font-size:0.78rem; color:var(--text-muted); margin-bottom:18px; }
+.chart-wrap { position:relative; width:100%; }
+.chart-wrap canvas { width:100%!important; height:100%!important; }
+
+/* Race Widget CSS */
+.race-wrapper { position: relative; height: 390px; overflow: hidden; margin-top: 10px; }
+.bg-year-race {
+  position: absolute; bottom: 0; right: 10px; font-size: 80px;
+  font-family: 'DM Serif Display', serif; color: rgba(255, 255, 255, 0.03);
+  line-height: 1; pointer-events: none; z-index: 0;
+}
+.bar-row {
+  position: absolute; left: 0; width: 100%; height: 20px;
+  display: flex; align-items: center; opacity: 0; pointer-events: none;
+}
+.bar-label {
+  width: 130px; text-align: right; padding-right: 12px; font-weight: 600; 
+  font-size: 0.85rem; display: flex; justify-content: flex-end; align-items: center; gap: 10px;
+}
+.bar-label .fi { font-size: 1.25em; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+.bar-track { flex: 1; height: 100%; position: relative; display: flex; align-items: center; }
+.bar-fill { height: 100%; border-radius: 4px; position: relative; transition: width 0.1s linear; }
+.bar-val { margin-left: 10px; font-family: 'DM Sans', monospace; font-weight: 700; font-size: 0.85rem; color: var(--text); }
+.race-controls {
+  display: flex; align-items: center; gap: 15px; margin-top: 15px;
+  padding-top: 15px; border-top: 1px solid var(--border); z-index: 10; position: relative;
+}
+.btn-play {
+  background: var(--accent1); color: var(--bg); border: none; border-radius: 50%;
+  width: 38px; height: 38px; font-size: 1rem; cursor: pointer; display: flex;
+  justify-content: center; align-items: center; transition: transform 0.15s;
+}
+.btn-play:hover { transform: scale(1.08); }
+.slider-race-container { flex: 1; display: flex; align-items: center; gap: 10px; font-family: monospace; font-size: 0.85rem; }
+.slider-race-container input { -webkit-appearance: none; flex: 1; height: 4px; background: var(--border); border-radius: 2px; outline: none; cursor: pointer;}
+.slider-race-container input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--text); border: 2px solid var(--accent1); }
+
+/* KPI Scorecards */
+.kpi-row { display:flex; gap:20px; margin-bottom:30px; flex-wrap:wrap; }
+.kpi { flex:1;min-width:180px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;position:relative;overflow:hidden; }
+.kpi::after { content:'';position:absolute;top:0;left:0;width:100%;height:3px; }
+.kpi:nth-child(1)::after { background:linear-gradient(135deg,#4ecdc4,#44b0a8); }
+.kpi:nth-child(2)::after { background:linear-gradient(135deg,#ff6b6b,#ee5a5a); }
+.kpi:nth-child(3)::after { background:linear-gradient(135deg,#ffd93d,#f0c929); }
+.kpi:nth-child(4)::after { background:linear-gradient(135deg,#6c5ce7,#a29bfe); }
+.kpi-label { font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:600; }
+.kpi-value { font-family:'DM Serif Display',serif;font-size:2rem;margin:4px 0; }
+.kpi-delta { font-size:0.8rem; }
+.kpi-delta.up { color:var(--accent1); }
+.kpi-delta.down { color:var(--accent2); }
+
+.methodology { background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:30px;font-size:0.85rem;color:var(--text-muted);line-height:1.8; }
+
+footer { max-width:1400px;margin:0 auto;padding:40px;border-top:1px solid var(--border); }
+footer h3 { font-family:'DM Serif Display',serif;font-size:1.2rem;margin-bottom:14px; }
+footer ul { list-style:none; }
+footer li { margin-bottom:8px;font-size:0.82rem;color:var(--text-muted); }
+footer a { color:var(--accent1);text-decoration:none; }
+
+@media(max-width:1000px){
+  .sidebar { position:relative; width:100%; height:auto; border-right:none; border-bottom:1px solid var(--border); padding:20px; }
+  .main-content { margin-left:0; width:100%; }
+  .filter-bar.vertical { flex-direction:row; flex-wrap:wrap; }
+  .grid-2 { grid-template-columns:1fr; }
+  h1 { font-size:2.2rem; } 
+  header, main, footer { padding-left:20px; padding-right:20px; }
+}
+</style>
+</head>
+<body>
+<div class="noise"></div>
+
+<aside class="sidebar">
+  <div style="margin-bottom: 40px;">
+    <h2 style="font-family:'DM Serif Display',serif; font-size:1.8rem; color:var(--accent1); margin-bottom: 4px;">WorldPop</h2>
+    <p style="font-size: 0.8rem; color:var(--text-muted); letter-spacing: 0.05em; text-transform: uppercase;">Interactive Dashboard</p>
+  </div>
+
+  <div class="timeline-label" style="margin-bottom: 12px; color: var(--text);">🌍 Select Region</div>
+  <div class="filter-bar vertical" style="margin-bottom: 40px;">
+    <button class="filter-btn active" onclick="setGlobalRegion('World',this)">Globe (World)</button>
+    <button class="filter-btn" onclick="setGlobalRegion('Asia',this)">Asia</button>
+    <button class="filter-btn" onclick="setGlobalRegion('Africa',this)">Africa</button>
+    <button class="filter-btn" onclick="setGlobalRegion('Europe',this)">Europe</button>
+    <button class="filter-btn" onclick="setGlobalRegion('Americas',this)">Americas</button>
+    <button class="filter-btn" onclick="setGlobalRegion('Oceania',this)">Oceania</button>
+  </div>
+
+  <div class="timeline-wrap">
+    <div class="timeline-label" style="color: var(--accent1);">📅 Historical Range</div>
+    <div class="range-container">
+      <div class="range-track"></div>
+      <div class="range-fill f-desc" id="dFill"></div>
+      <input type="range" min="1800" max="2024" value="1800" id="dMin" oninput="dSlide()">
+      <input type="range" min="1800" max="2024" value="2024" id="dMax" oninput="dSlide()">
+    </div>
+    <div class="year-display"><span class="yr1" id="dYL">1800</span><span class="sep">—</span><span class="yr1" id="dYH">2024</span></div>
+  </div>
+
+  <div class="timeline-wrap" style="margin-top: 10px;">
+    <div class="timeline-label" style="color: var(--accent4);">🔮 Projections Range</div>
+    <div class="range-container">
+      <div class="range-track"></div>
+      <div class="range-fill f-pred" id="pFill"></div>
+      <input type="range" class="rng-pred" min="2024" max="2100" value="2024" id="pMin" oninput="pSlide()">
+      <input type="range" class="rng-pred" min="2024" max="2100" value="2100" id="pMax" oninput="pSlide()">
+    </div>
+    <div class="year-display"><span class="yr2" id="pYL">2024</span><span class="sep">—</span><span class="yr2" id="pYH">2100</span></div>
+  </div>
+</aside>
+
+<div class="main-content">
+  <header>
+    <span class="tag tag-desc">BANA 5007 — Communicating Analytics</span>
+    <h1>Growth, Shifts & Futures</h1>
+    <p>Explore the past, present, and projected future of global demographics using the filters in the sidebar.</p>
+  </header>
+  
+  <main>
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label" id="k1l"></div><div class="kpi-value" id="k1v"></div><div class="kpi-delta up" id="k1d"></div></div>
+      <div class="kpi"><div class="kpi-label" id="k2l"></div><div class="kpi-value" id="k2v"></div><div class="kpi-delta down" id="k2d"></div></div>
+      <div class="kpi"><div class="kpi-label" id="k3l"></div><div class="kpi-value" id="k3v"></div><div class="kpi-delta up" id="k3d"></div></div>
+      <div class="kpi"><div class="kpi-label" id="k4l"></div><div class="kpi-value" id="k4v"></div><div class="kpi-delta up" id="k4d"></div></div>
+    </div>
+
+    <h2 class="section-title" style="color:var(--accent3); margin-top: 10px;">Global Overview</h2>
+    <p class="section-sub">Comparing regional population shares and demographic shifts</p>
+    
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title">Population Share by Continent (2024)</div>
+        <div class="card-note">Asia represents nearly 60% of the global population.</div>
+        <div class="chart-wrap" style="height: 440px;"><canvas id="c_share"></canvas></div>
+      </div>
+      
+      <div class="card">
+        <div class="card-title">Top 15 Populated Countries</div>
+        <div class="card-note">A demographic race from 1950 through to 2100</div>
+        
+        <div class="race-wrapper" id="barsWrapper">
+          <div class="bg-year-race" id="bgYearRace">1950</div>
+        </div>
+
+        <div class="race-controls">
+          <button class="btn-play" id="playBtn">▶</button>
+          <div class="slider-race-container">
+            <span>1950</span>
+            <input type="range" id="timeSliderRace" min="1950" max="2100" step="0.1" value="1950">
+            <span>2100</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-title">Global Population Heatmap (2024)</div>
+        <div class="card-note">Population density visualization by country (Millions). Yellow = Low | Red = High</div>
+        <div class="chart-wrap" style="height: 400px;"><canvas id="c_heatmap"></canvas></div>
+      </div>
+    </div>
+
+    <h2 class="section-title" style="color:var(--accent1)">① Descriptive Insights</h2>
+    <p class="section-sub">Understanding where we are and how we got here based on historical data.</p>
+    
+    <div class="grid grid-2">
+      <div class="card"><div class="card-title" id="dt1"></div><div class="card-note" id="dn1"></div><div class="chart-wrap" style="height: 260px;"><canvas id="c_pop"></canvas></div></div>
+      <div class="card"><div class="card-title" id="dt2"></div><div class="card-note" id="dn2"></div><div class="chart-wrap" style="height: 260px;"><canvas id="c_gr"></canvas></div></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card"><div class="card-title" id="dt3"></div><div class="card-note" id="dn3"></div><div class="chart-wrap" style="height: 260px;"><canvas id="c_ur"></canvas></div></div>
+      <div class="card"><div class="card-title" id="dt4"></div><div class="card-note">Displayed as % of Total Population</div><div class="chart-wrap" style="height: 260px;"><canvas id="c_age"></canvas></div></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card"><div class="card-title" id="dt5"></div><div class="card-note" id="dn5"></div><div class="chart-wrap" style="height: 260px;"><canvas id="c_fert"></canvas></div></div>
+      <div class="card"><div class="card-title" id="dt7"></div><div class="card-note">Mean Years of Schooling (1990 - 2024)</div><div class="chart-wrap" style="height: 260px;"><canvas id="c_edu_desc"></canvas></div></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card"><div class="card-title" id="dt8"></div><div class="card-note">GDP Per Capita in Constant USD</div><div class="chart-wrap" style="height: 260px;"><canvas id="c_gdp_desc"></canvas></div></div>
+      <div class="card"><div class="card-title" id="dt9"></div><div class="card-note">Male vs Female distribution</div><div class="chart-wrap" style="height: 260px;"><canvas id="c_gender"></canvas></div></div>
+    </div>
+    <div class="grid">
+      <div class="card" style="grid-column: 1 / -1;"><div class="card-title" id="dt6"></div><div class="chart-wrap" style="height: 350px;"><canvas id="c_top"></canvas></div></div>
+    </div>
+
+    <h2 class="section-title" style="color:var(--accent4)">② Predictive Insights</h2>
+    <p class="section-sub">UN Medium-Variant Projections (2024 Revision)</p>
+    
+    <div class="grid grid-2">
+      <div class="card"><div class="card-title" id="pt1"></div><div class="chart-wrap" style="height: 280px;"><canvas id="c_proj"></canvas></div></div>
+      <div class="card"><div class="card-title" id="pt2"></div><div class="chart-wrap" style="height: 280px;"><canvas id="c_dep"></canvas></div></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card"><div class="card-title" id="pt3"></div><div class="chart-wrap" style="height: 280px;"><canvas id="c_pyr"></canvas></div></div>
+      <div class="card"><div class="card-title" id="pt4"></div><div class="chart-wrap" style="height: 280px;"><canvas id="c_fp"></canvas></div></div>
+    </div>
+
+    <h2 class="section-title" style="color:var(--accent2)">③ Prescriptive Insights</h2>
+    <p class="section-sub">Population × Policy Intersections (Hover over bubbles to explore data)</p>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title">The Environmental Kuznets Curve</div>
+        <div class="card-note">Urbanization Rate (%) vs PM 2.5 Pollution. Bubble size = Population</div>
+        <div class="chart-wrap" style="height: 300px;"><canvas id="c_urb_pm25"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">GDP per Capita vs Fertility</div>
+        <div class="card-note">Income–fertility inverse relationship</div>
+        <div class="chart-wrap" style="height: 300px;"><canvas id="c_gdp"></canvas></div>
+      </div>
+    </div>
+    
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title">Female Education vs Fertility</div>
+        <div class="card-note">Mean years of schooling (female) vs births/woman</div>
+        <div class="chart-wrap" style="height: 280px;"><canvas id="c_edu"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Health Spending vs Life Expectancy</div>
+        <div class="card-note">Expenditure per capita (USD) vs life expectancy</div>
+        <div class="chart-wrap" style="height: 280px;"><canvas id="c_hlt"></canvas></div>
+      </div>
+    </div>
+    
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title">The Migration Lifeline</div>
+        <div class="card-note">Natural Growth vs Net Migration Rate (per 1,000 population)</div>
+        <div class="chart-wrap" style="height: 280px;"><canvas id="c_mig"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">The Demographic Transition</div>
+        <div class="card-note">Median Age vs Infant Mortality Rate</div>
+        <div class="chart-wrap" style="height: 280px;"><canvas id="c_dem"></canvas></div>
+      </div>
+    </div>
+
+    <div class="methodology"><strong>Methodology:</strong> Descriptive data from UN WPP 2024 & World Bank. Predictive: UN Population Division medium-variant (2024 revision). Prescriptive: cross-sectional data showing macro-correlations across 24 key nations. Timeline sliders filter time-series charts; Top Countries and Age Pyramid show latest snapshot.</div>
+  </main>
+
+  <footer>
+    <h3>Data Sources & References</h3>
+    <ul>
+      <li>📊 United Nations, Population Division (2024). <em>World Population Prospects 2024.</em> <a href="https://population.un.org/wpp/">https://population.un.org/wpp/</a></li>
+      <li>📊 World Bank Open Data (Total Population & Environment) <a href="https://data.worldbank.org/">https://data.worldbank.org/</a></li>
+      <li>📊 Our World in Data <a href="https://ourworldindata.org/">https://ourworldindata.org/</a></li>
+    </ul>
+  </footer>
+</div>
+
+<script>
+// Register Geo Plugin if available
+if (window.ChartGeo && window.topojson) {
+  Chart.register(ChartGeo.ChoroplethController, ChartGeo.GeoFeature, ChartGeo.ColorScale, ChartGeo.ProjectionScale);
+}
+// Register DataLabels Plugin for the Pie Charts
+Chart.register(ChartDataLabels);
+
+Chart.defaults.color='#8892a4';
+Chart.defaults.borderColor='#2a3142';
+Chart.defaults.font.family="'DM Sans',sans-serif";
+Chart.defaults.font.size=11;
+Chart.defaults.plugins.legend.labels.boxWidth=12;
+Chart.defaults.plugins.legend.labels.padding=14;
+
+// Globally disable the datalabels plugin so it doesn't print numbers on every line/bar chart automatically.
+Chart.defaults.plugins.datalabels = { display: false };
+
+const C={teal:'#4ecdc4',red:'#ff6b6b',yellow:'#ffd93d',purple:'#6c5ce7',green:'#a8e6cf',blue:'#74b9ff',orange:'#fdcb6e',pink:'#fd79a8',tealA:'rgba(78,205,196,0.15)',redA:'rgba(255,107,107,0.15)',purpleA:'rgba(108,92,231,0.15)',yellowA:'rgba(255,217,61,0.15)'};
+let ch={};
+
+function mc(id,cfg){
+  if(ch[id]) ch[id].destroy();
+  if(cfg.options) cfg.options.maintainAspectRatio = false;
+  ch[id]=new Chart(document.getElementById(id),cfg);
+}
+
+// State unified for all charts
+let S={ r:'World', dLo:1800, dHi:2024, pLo:2024, pHi:2100 };
+
+// Filter by range helpers
+function fR(labels,...arrs){const ix=[];labels.forEach((l,i)=>{if(l>=S.dLo&&l<=S.dHi)ix.push(i);});return{l:ix.map(i=>labels[i]),d:arrs.map(a=>ix.map(i=>a[i]))};}
+function fP(labels,...arrs){const ix=[];labels.forEach((l,i)=>{if(l>=S.pLo&&l<=S.pHi)ix.push(i);});return{l:ix.map(i=>labels[i]),d:arrs.map(a=>ix.map(i=>a[i]))};}
+
+// ═══ DATA ═══
+const D={
+desc:{
+World:{k:['World Population (2024)','8.16 B','+0.88% vs 2023','Fertility Rate','2.25','↓ from 4.97 in 1960','Urbanization','57%','↑ from 34% in 1960','Median Age','30.5','↑ from 23.6 in 1950'],
+pL:[1800,1850,1900,1927,1950,1960,1970,1980,1990,2000,2010,2020,2024],pD:[1.0,1.26,1.65,2.0,2.5,3.0,3.7,4.44,5.3,6.14,6.96,7.79,8.16],
+gL:[1950,1955,1960,1965,1968,1970,1975,1980,1985,1990,1995,2000,2005,2010,2015,2020,2024],gD:[1.73,1.79,1.82,2.02,2.09,2.04,1.90,1.76,1.72,1.58,1.42,1.25,1.21,1.16,1.08,0.95,0.88],
+uL:[1960,1970,1980,1990,2000,2007,2010,2015,2020,2024],uU:[34,37,39,43,47,50,52,54,56,57],uR:[66,63,61,57,53,50,48,46,44,43],
+aL:[1950,1960,1970,1980,1990,2000,2010,2020,2024],a0:[34,37,37,35,33,30,27,26,25],a1:[61,58,57,59,61,63,66,65,65],a2:[5,5,6,6,6,7,7,9,10],
+fL:[1960,1970,1980,1990,2000,2010,2020,2023],fD:[4.97,4.72,3.68,3.25,2.73,2.53,2.35,2.25],
+edL:[1990, 2000, 2010, 2020, 2024], edD:[5.3, 6.8, 7.9, 8.6, 8.7],
+gdpL:[1990, 2000, 2010, 2020, 2024], gdpD:[4200, 5500, 9500, 11000, 12800], gnD:[50.3, 49.7],
+tL:['India','China','USA','Indonesia','Pakistan','Nigeria','Brazil','Bangladesh','Russia','Ethiopia'],tD:[1450,1419,340,279,240,230,216,173,144,130],tC:[C.teal,C.red,C.blue,C.yellow,C.purple,C.orange,C.green,C.pink,'#636e72','#b2bec3']},
+
+Asia:{k:['Asia Population (2024)','4.75 B','+0.65% vs 2023','Fertility Rate','1.93','↓ from 5.65 in 1960','Urbanization','52%','↑ from 22% in 1960','Median Age','32.2','↑ from 22.0 in 1950'],
+pL:[1800,1850,1900,1950,1960,1970,1980,1990,2000,2010,2020,2024],pD:[0.64,0.79,0.95,1.40,1.70,2.14,2.63,3.20,3.71,4.17,4.64,4.75],
+gL:[1950,1960,1970,1980,1990,2000,2010,2020,2024],gD:[1.90,2.10,2.24,1.90,1.63,1.13,1.01,0.75,0.65],
+uL:[1960,1970,1980,1990,2000,2010,2020,2024],uU:[22,25,28,33,38,45,51,52],uR:[78,75,72,67,62,55,49,48],
+aL:[1950,1960,1970,1980,1990,2000,2010,2020,2024],a0:[37,40,40,37,34,30,26,24,23],a1:[59,56,56,58,61,64,67,67,67],a2:[4,4,4,5,5,6,7,9,10],
+fL:[1960,1970,1980,1990,2000,2010,2020,2023],fD:[5.65,5.08,3.75,3.20,2.55,2.30,2.05,1.93],
+edL:[1990, 2000, 2010, 2020, 2024], edD:[4.5, 6.0, 7.3, 8.4, 8.6],
+gdpL:[1990, 2000, 2010, 2020, 2024], gdpD:[1500, 2800, 5500, 7800, 8900], gnD:[51.2, 48.8],
+tL:['India','China','Indonesia','Pakistan','Bangladesh','Japan','Philippines','Vietnam','Turkey','Iran'],tD:[1450,1419,279,240,173,124,117,100,86,89],tC:[C.teal,C.red,C.yellow,C.purple,C.pink,C.orange,C.green,C.blue,'#636e72','#b2bec3']},
+
+Africa:{k:['Africa Population (2024)','1.46 B','+2.3% vs 2023','Fertility Rate','4.10','↓ from 6.7 in 1960','Urbanization','44%','↑ from 19% in 1960','Median Age','19.7','↑ from 18.7 in 1950'],
+pL:[1800,1850,1900,1950,1960,1970,1980,1990,2000,2010,2020,2024],pD:[0.09,0.10,0.13,0.23,0.28,0.36,0.48,0.63,0.81,1.04,1.34,1.46],
+gL:[1950,1960,1970,1980,1990,2000,2010,2020,2024],gD:[2.10,2.35,2.60,2.82,2.68,2.52,2.56,2.45,2.30],
+uL:[1960,1970,1980,1990,2000,2010,2020,2024],uU:[19,23,27,31,35,39,43,44],uR:[81,77,73,69,65,61,57,56],
+aL:[1950,1960,1970,1980,1990,2000,2010,2020,2024],a0:[43,44,45,45,45,43,42,40,39],a1:[54,53,52,52,52,54,55,57,58],a2:[3,3,3,3,3,3,3,3,3],
+fL:[1960,1970,1980,1990,2000,2010,2020,2023],fD:[6.70,6.72,6.60,6.00,5.30,4.85,4.30,4.10],
+edL:[1990, 2000, 2010, 2020, 2024], edD:[3.0, 4.2, 5.0, 5.7, 5.9],
+gdpL:[1990, 2000, 2010, 2020, 2024], gdpD:[1100, 1300, 1800, 2000, 2100], gnD:[50.1, 49.9],
+tL:['Nigeria','Ethiopia','Egypt','DRC','Tanzania','S. Africa','Kenya','Sudan','Algeria','Uganda'],tD:[230,130,113,105,67,62,56,49,46,49],tC:[C.orange,C.teal,C.blue,C.red,C.yellow,C.purple,C.green,C.pink,'#636e72','#b2bec3']},
+
+Europe:{k:['Europe Population (2024)','742 M','-0.1% vs 2023','Fertility Rate','1.50','↓ from 2.58 in 1960','Urbanization','75%','↑ from 57% in 1960','Median Age','42.5','↑ from 30.0 in 1950'],
+pL:[1800,1850,1900,1950,1960,1970,1980,1990,2000,2010,2020,2024],pD:[0.20,0.27,0.40,0.55,0.60,0.66,0.69,0.72,0.73,0.74,0.75,0.742],
+gL:[1950,1960,1970,1980,1990,2000,2010,2020,2024],gD:[1.00,0.82,0.60,0.40,0.20,0.02,0.12,-0.10,-0.10],
+uL:[1960,1970,1980,1990,2000,2010,2020,2024],uU:[57,63,67,70,71,73,75,75],uR:[43,37,33,30,29,27,25,25],
+aL:[1950,1960,1970,1980,1990,2000,2010,2020,2024],a0:[26,27,25,22,20,17,15,16,15],a1:[66,65,64,66,67,68,68,64,64],a2:[8,8,11,12,13,15,17,20,21],
+fL:[1960,1970,1980,1990,2000,2010,2020,2023],fD:[2.58,2.32,1.89,1.72,1.43,1.57,1.50,1.50],
+edL:[1990, 2000, 2010, 2020, 2024], edD:[9.0, 10.5, 11.8, 12.4, 12.5],
+gdpL:[1990, 2000, 2010, 2020, 2024], gdpD:[15000, 22000, 32000, 35000, 38000], gnD:[48.3, 51.7],
+tL:['Russia','Germany','UK','France','Italy','Spain','Ukraine','Poland','Romania','Netherlands'],tD:[144,84,68,66,59,48,37,38,19,18],tC:[C.red,C.yellow,C.blue,C.teal,C.orange,C.purple,C.pink,C.green,'#636e72','#b2bec3']},
+
+Americas:{k:['Americas Population (2024)','1.04 B','+0.55% vs 2023','Fertility Rate','1.80','↓ from 4.40 in 1960','Urbanization','82%','↑ from 61% in 1960','Median Age','33.0','↑ from 25.0 in 1950'],
+pL:[1800,1850,1900,1950,1960,1970,1980,1990,2000,2010,2020,2024],pD:[0.03,0.06,0.15,0.34,0.42,0.51,0.61,0.72,0.84,0.94,1.02,1.04],
+gL:[1950,1960,1970,1980,1990,2000,2010,2020,2024],gD:[1.85,2.10,1.90,1.70,1.50,1.20,0.95,0.65,0.55],
+uL:[1960,1970,1980,1990,2000,2010,2020,2024],uU:[61,66,70,73,77,80,82,82],uR:[39,34,30,27,23,20,18,18],
+aL:[1950,1960,1970,1980,1990,2000,2010,2020,2024],a0:[36,39,39,36,33,29,25,23,22],a1:[58,55,55,58,61,63,66,66,66],a2:[6,6,6,6,6,8,9,11,12],
+fL:[1960,1970,1980,1990,2000,2010,2020,2023],fD:[4.40,3.80,3.25,2.80,2.40,2.10,1.85,1.80],
+edL:[1990, 2000, 2010, 2020, 2024], edD:[7.5, 8.8, 9.9, 10.4, 10.5],
+gdpL:[1990, 2000, 2010, 2020, 2024], gdpD:[11000, 16000, 24000, 28000, 31000], gnD:[49.2, 50.8],
+tL:['USA','Brazil','Mexico','Colombia','Argentina','Canada','Peru','Venezuela','Chile','Guatemala'],tD:[340,216,130,52,46,40,34,29,20,18],tC:[C.blue,C.green,C.orange,C.yellow,C.teal,C.red,C.purple,C.pink,'#636e72','#b2bec3']},
+
+Oceania:{k:['Oceania Population (2024)','46 M','+1.2% vs 2023','Fertility Rate','2.25','↓ from 3.83 in 1960','Urbanization','68%','↑ from 66% in 1960','Median Age','33.4','↑ from 27.8 in 1950'],
+pL:[1800,1850,1900,1950,1960,1970,1980,1990,2000,2010,2020,2024],pD:[0.002,0.002,0.006,0.013,0.016,0.019,0.023,0.027,0.031,0.037,0.044,0.046],
+gL:[1950,1960,1970,1980,1990,2000,2010,2020,2024],gD:[2.20,2.10,1.90,1.60,1.50,1.40,1.60,1.30,1.20],
+uL:[1960,1970,1980,1990,2000,2010,2020,2024],uU:[66,68,71,70,70,68,68,68],uR:[34,32,29,30,30,32,32,32],
+aL:[1950,1960,1970,1980,1990,2000,2010,2020,2024],a0:[30,33,33,30,27,25,23,23,22],a1:[62,59,60,63,65,66,67,66,66],a2:[8,8,7,7,8,9,10,11,12],
+fL:[1960,1970,1980,1990,2000,2010,2020,2023],fD:[3.83,3.30,2.64,2.50,2.40,2.52,2.35,2.25],
+edL:[1990, 2000, 2010, 2020, 2024], edD:[10.0, 11.2, 11.8, 12.1, 12.2],
+gdpL:[1990, 2000, 2010, 2020, 2024], gdpD:[18000, 24000, 38000, 42000, 45000], gnD:[50.0, 50.0],
+tL:['Australia','PNG','New Zealand','Fiji','Solomon Is.','Vanuatu','Samoa','Guam','Tonga','Micronesia'],tD:[26.5,10.3,5.2,0.93,0.74,0.33,0.22,0.17,0.11,0.11],tC:[C.teal,C.red,C.blue,C.yellow,C.purple,C.orange,C.green,C.pink,'#636e72','#b2bec3']}
+},
+pred:{
+World:{jL:[2024,2030,2040,2050,2060,2070,2080,2090,2100],jH:[8.16,8.6,9.4,10.2,11.0,11.6,12.1,12.4,12.6],jM:[8.16,8.5,9.2,9.7,10.1,10.2,10.3,10.2,10.1],jLo:[8.16,8.3,8.6,8.8,8.7,8.3,7.8,7.2,6.6],dL:[2000,2010,2020,2024,2030,2040,2050],dD:[10,11,14,15,18,22,26],yL:['0–4','5–14','15–24','25–34','35–44','45–54','55–64','65–74','75–84','85+'],y24:[651,1290,1200,1150,1050,920,750,520,260,80],y50:[580,1180,1200,1180,1150,1100,950,750,450,170],fL:[2024,2030,2040,2050,2060,2070,2080,2090,2100],fD:[2.25,2.17,2.08,2.02,1.96,1.92,1.88,1.85,1.83]},
+Asia:{jL:[2024,2030,2040,2050,2060,2070,2080,2090,2100],jH:[4.75,4.90,5.15,5.35,5.40,5.35,5.25,5.10,4.95],jM:[4.75,4.85,5.00,5.05,4.95,4.75,4.50,4.25,4.00],jLo:[4.75,4.78,4.80,4.65,4.35,3.95,3.55,3.15,2.80],dL:[2000,2010,2020,2024,2030,2040,2050],dD:[9,10,13,15,19,27,33],yL:['0–4','5–14','15–24','25–34','35–44','45–54','55–64','65–74','75–84','85+'],y24:[370,710,680,700,660,560,440,300,140,40],y50:[290,600,640,660,680,680,590,460,250,80],fL:[2024,2030,2040,2050,2060,2070,2080,2090,2100],fD:[1.93,1.85,1.78,1.74,1.72,1.70,1.69,1.68,1.68]},
+Africa:{jL:[2024,2030,2040,2050,2060,2070,2080,2090,2100],jH:[1.46,1.72,2.22,2.85,3.55,4.25,4.95,5.60,6.20],jM:[1.46,1.68,2.10,2.49,2.90,3.20,3.40,3.48,3.44],jLo:[1.46,1.64,1.95,2.18,2.30,2.30,2.20,2.05,1.85],dL:[2000,2010,2020,2024,2030,2040,2050],dD:[6,6,5,6,6,6,7],yL:['0–4','5–14','15–24','25–34','35–44','45–54','55–64','65–74','75–84','85+'],y24:[222,340,280,220,160,105,65,35,14,3],y50:[280,460,420,360,290,220,150,85,35,8],fL:[2024,2030,2040,2050,2060,2070,2080,2090,2100],fD:[4.10,3.70,3.10,2.65,2.35,2.15,2.00,1.90,1.82]},
+Europe:{jL:[2024,2030,2040,2050,2060,2070,2080,2090,2100],jH:[0.742,0.748,0.750,0.745,0.735,0.722,0.710,0.700,0.690],jM:[0.742,0.738,0.720,0.690,0.660,0.630,0.600,0.580,0.590],jLo:[0.742,0.725,0.685,0.635,0.580,0.530,0.480,0.440,0.400],dL:[2000,2010,2020,2024,2030,2040,2050],dD:[22,25,30,33,37,44,50],yL:['0–4','5–14','15–24','25–34','35–44','45–54','55–64','65–74','75–84','85+'],y24:[38,78,75,80,85,90,82,68,38,12],y50:[32,65,70,72,75,78,80,75,55,22],fL:[2024,2030,2040,2050,2060,2070,2080,2090,2100],fD:[1.50,1.52,1.55,1.58,1.60,1.62,1.64,1.65,1.66]},
+Americas:{jL:[2024,2030,2040,2050,2060,2070,2080,2090,2100],jH:[1.04,1.09,1.17,1.24,1.28,1.30,1.30,1.29,1.28],jM:[1.04,1.07,1.12,1.14,1.14,1.12,1.09,1.05,1.01],jLo:[1.04,1.05,1.06,1.04,0.99,0.93,0.86,0.79,0.72],dL:[2000,2010,2020,2024,2030,2040,2050],dD:[14,16,20,22,26,32,37],yL:['0–4','5–14','15–24','25–34','35–44','45–54','55–64','65–74','75–84','85+'],y24:[65,130,135,140,140,130,110,80,42,14],y50:[55,115,125,130,135,135,130,110,65,25],fL:[2024,2030,2040,2050,2060,2070,2080,2090,2100],fD:[1.80,1.73,1.68,1.65,1.63,1.62,1.61,1.61,1.61]},
+Oceania:{jL:[2024,2030,2040,2050,2060,2070,2080,2090,2100],jH:[0.046,0.050,0.058,0.066,0.073,0.079,0.084,0.088,0.091],jM:[0.046,0.049,0.056,0.062,0.066,0.069,0.071,0.072,0.072],jLo:[0.046,0.048,0.053,0.057,0.058,0.058,0.057,0.055,0.053],dL:[2000,2010,2020,2024,2030,2040,2050],dD:[16,18,22,24,28,33,36],yL:['0–4','5–14','15–24','25–34','35–44','45–54','55–64','65–74','75–84','85+'],y24:[3.6,6.8,6.2,6.5,6.2,5.8,5.0,3.8,1.8,0.5],y50:[3.4,6.8,6.8,7.0,7.0,6.8,6.2,5.2,3.0,1.0],fL:[2024,2030,2040,2050,2060,2070,2080,2090,2100],fD:[2.25,2.15,2.00,1.92,1.85,1.82,1.80,1.78,1.77]},
+},
+pres:{
+World:{
+  urb_pm25:[
+      {l:'Ethiopia', x:22, y:28.7, r:4.0, reg:'Africa', c:'rgba(253,203,110,0.7)'},
+      {l:'Egypt', x:43, y:67.8, r:4.0, reg:'Africa', c:'rgba(253,203,110,0.7)'},
+      {l:'South Africa', x:68, y:23.2, r:3.0, reg:'Africa', c:'rgba(253,203,110,0.7)'},
+      {l:'Nigeria', x:53, y:51.7, r:6.0, reg:'Africa', c:'rgba(253,203,110,0.7)'},
+      {l:'China', x:65, y:37.5, r:25.0, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Japan', x:92, y:12.9, r:4.0, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'S. Korea', x:81, y:26.0, r:3.0, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Bangladesh', x:40, y:50.4, r:5.0, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'India', x:35, y:59.9, r:25.0, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Pakistan', x:37, y:52.9, r:6.5, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Indonesia', x:57, y:19.4, r:7.0, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Philippines', x:48, y:21.5, r:4.0, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Vietnam', x:38, y:28.0, r:4.0, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Russia', x:75, y:11.7, r:5.0, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'UK', x:84, y:9.9, r:3.0, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'Italy', x:71, y:14.9, r:3.0, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'France', x:81, y:9.8, r:3.0, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'Germany', x:77, y:10.6, r:3.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'Mexico', x:81, y:14.7, r:4.5, reg:'Americas', c:'rgba(78,205,196,0.7)'},
+      {l:'Brazil', x:87, y:12.3, r:6.0, reg:'Americas', c:'rgba(78,205,196,0.7)'},
+      {l:'Canada', x:82, y:6.2, r:3.0, reg:'Americas', c:'rgba(78,205,196,0.7)'},
+      {l:'USA', x:83, y:7.2, r:8.0, reg:'Americas', c:'rgba(78,205,196,0.7)'},
+      {l:'Australia', x:86, y:9.3, r:3.0, reg:'Oceania', c:'rgba(168,230,207,0.7)'}
+  ],
+  gdp:[{l:'Ethiopia', x:1000, y:4.1, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Egypt', x:3000, y:2.8, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'South Africa', x:6000, y:2.3, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Nigeria', x:2000, y:5.1, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'China', x:12500, y:1.2, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Japan', x:39000, y:1.3, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'S. Korea', x:32000, y:0.8, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Bangladesh', x:2500, y:1.9, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'India', x:2300, y:2.0, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Pakistan', x:1500, y:3.5, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Indonesia', x:4300, y:2.1, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Philippines', x:3500, y:2.4, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Vietnam', x:3700, y:1.9, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Singapore', x:72000, y:1.1, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Russia', x:12000, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'UK', x:45000, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Italy', x:35000, y:1.2, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'France', x:43000, y:1.8, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Germany', x:50000, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Mexico', x:10000, y:1.9, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Brazil', x:7500, y:1.6, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Canada', x:52000, y:1.4, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'USA', x:70000, y:1.6, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Australia', x:60000, y:1.6, reg:'Oceania', c:'rgba(168,230,207,0.7)'}],
+  edu:[{l:'Ethiopia', x:3.0, y:4.1, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Egypt', x:7.0, y:2.8, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'South Africa', x:10.0, y:2.3, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Nigeria', x:5.0, y:5.1, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'China', x:9.0, y:1.2, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Japan', x:12.0, y:1.3, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'S. Korea', x:12.5, y:0.8, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Bangladesh', x:6.5, y:1.9, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'India', x:7.5, y:2.0, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Pakistan', x:4.5, y:3.5, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Indonesia', x:8.5, y:2.1, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Philippines', x:9.5, y:2.4, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Vietnam', x:8.5, y:1.9, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Singapore', x:12.5, y:1.1, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Russia', x:11.5, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'UK', x:13.0, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Italy', x:12.0, y:1.2, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'France', x:12.5, y:1.8, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Germany', x:13.0, y:1.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Mexico', x:9.5, y:1.9, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Brazil', x:10.0, y:1.6, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Canada', x:13.5, y:1.4, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'USA', x:13.5, y:1.6, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Australia', x:13.0, y:1.6, reg:'Oceania', c:'rgba(168,230,207,0.7)'}],
+  hlt:[{l:'Ethiopia', x:35, y:65, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Egypt', x:150, y:70, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'South Africa', x:500, y:65, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'Nigeria', x:75, y:55, reg:'Africa', c:'rgba(253,203,110,0.7)'},{l:'China', x:900, y:78, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Japan', x:4000, y:84, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'S. Korea', x:2500, y:83, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Bangladesh', x:45, y:72, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'India', x:70, y:70, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Pakistan', x:40, y:67, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Indonesia', x:120, y:71, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Philippines', x:130, y:71, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Vietnam', x:150, y:75, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Singapore', x:3000, y:83, reg:'Asia', c:'rgba(255,107,107,0.7)'},{l:'Russia', x:600, y:73, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'UK', x:4000, y:81, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Italy', x:3000, y:83, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'France', x:4500, y:82, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Germany', x:5000, y:81, reg:'Europe', c:'rgba(108,92,231,0.7)'},{l:'Mexico', x:500, y:75, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Brazil', x:800, y:75, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Canada', x:5000, y:82, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'USA', x:11000, y:78, reg:'Americas', c:'rgba(78,205,196,0.7)'},{l:'Australia', x:5000, y:83, reg:'Oceania', c:'rgba(168,230,207,0.7)'}],
+  mig: [
+      {l:'Ethiopia', x:25.9, y:-0.1, reg:'Africa', c:'rgba(253,203,110,0.7)'},
+      {l:'Egypt', x:15.5, y:2.7, reg:'Africa', c:'rgba(253,203,110,0.7)'},
+      {l:'South Africa', x:9.5, y:3.6, reg:'Africa', c:'rgba(253,203,110,0.7)'},
+      {l:'Nigeria', x:21.2, y:-0.3, reg:'Africa', c:'rgba(253,203,110,0.7)'},
+      {l:'China', x:-2.0, y:-0.4, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Japan', x:-6.2, y:1.4, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Bangladesh', x:15.3, y:-3.2, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'India', x:9.5, y:-0.7, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Pakistan', x:21.3, y:-6.5, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Indonesia', x:8.4, y:-0.1, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Philippines', x:9.8, y:-1.4, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Vietnam', x:7.3, y:-0.8, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Russia', x:-3.4, y:0.2, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'UK', x:0.5, y:6.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'Italy', x:-4.7, y:2.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'France', x:0.3, y:1.4, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'Germany', x:-3.7, y:7.2, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'Mexico', x:9.5, y:-0.8, reg:'Americas', c:'rgba(78,205,196,0.7)'},
+      {l:'Brazil', x:5.2, y:-1.1, reg:'Americas', c:'rgba(78,205,196,0.7)'},
+      {l:'Canada', x:1.1, y:11.0, reg:'Americas', c:'rgba(78,205,196,0.7)'},
+      {l:'USA', x:2.0, y:3.9, reg:'Americas', c:'rgba(78,205,196,0.7)'},
+      {l:'Australia', x:4.6, y:5.3, reg:'Oceania', c:'rgba(168,230,207,0.7)'}
+  ],
+  dem: [
+      {l:'Ethiopia', x:18.7, y:33.0, reg:'Africa', c:'rgba(253,203,110,0.7)'},
+      {l:'Egypt', x:24.0, y:14.6, reg:'Africa', c:'rgba(253,203,110,0.7)'},
+      {l:'South Africa', x:28.2, y:27.8, reg:'Africa', c:'rgba(253,203,110,0.7)'},
+      {l:'Nigeria', x:17.8, y:69.5, reg:'Africa', c:'rgba(253,203,110,0.7)'},
+      {l:'China', x:39.1, y:5.1, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Japan', x:49.0, y:1.6, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Bangladesh', x:25.3, y:22.8, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'India', x:28.1, y:22.6, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Pakistan', x:20.3, y:49.4, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Indonesia', x:29.8, y:17.1, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Philippines', x:25.3, y:20.7, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Vietnam', x:32.4, y:15.1, reg:'Asia', c:'rgba(255,107,107,0.7)'},
+      {l:'Russia', x:39.5, y:3.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'UK', x:39.8, y:3.7, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'Italy', x:47.5, y:2.2, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'France', x:41.8, y:3.5, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'Germany', x:45.1, y:3.0, reg:'Europe', c:'rgba(108,92,231,0.7)'},
+      {l:'Mexico', x:28.9, y:10.3, reg:'Americas', c:'rgba(78,205,196,0.7)'},
+      {l:'Brazil', x:33.9, y:12.1, reg:'Americas', c:'rgba(78,205,196,0.7)'},
+      {l:'Canada', x:40.3, y:4.3, reg:'Americas', c:'rgba(78,205,196,0.7)'},
+      {l:'USA', x:38.0, y:5.3, reg:'Americas', c:'rgba(78,205,196,0.7)'},
+      {l:'Australia', x:37.8, y:3.2, reg:'Oceania', c:'rgba(168,230,207,0.7)'}
+  ]
+}
+}
+};
+
+// ═══ RACE WIDGET LOGIC ═══
+const raceRawData = [
+  { name: "China", code: "cn", color: "#ff4757", pop: { 1950:544, 1960:654, 1970:822, 1980:982, 1990:1153, 2000:1264, 2010:1348, 2024:1419, 2050:1312, 2075:974, 2100:633 } },
+  { name: "India", code: "in", color: "#ff7f50", pop: { 1950:357, 1960:449, 1970:553, 1980:696, 1990:870, 2000:1053, 2010:1240, 2024:1450, 2050:1670, 2075:1690, 2100:1530 } },
+  { name: "USA", code: "us", color: "#1e90ff", pop: { 1950:158, 1960:186, 1970:205, 1980:226, 1990:248, 2000:282, 2010:311, 2024:340, 2050:375, 2075:388, 2100:394 } },
+  { name: "Indonesia", code: "id", color: "#2ed573", pop: { 1950:69, 1960:87, 1970:114, 1980:147, 1990:181, 2000:211, 2010:242, 2024:279, 2050:317, 2075:314, 2100:297 } },
+  { name: "Pakistan", code: "pk", color: "#5352ed", pop: { 1950:37, 1960:45, 1970:58, 1980:78, 1990:114, 2000:142, 2010:179, 2024:240, 2050:367, 2075:452, 2100:487 } },
+  { name: "Nigeria", code: "ng", color: "#00d8d6", pop: { 1950:37, 1960:45, 1970:55, 1980:73, 1990:95, 2000:122, 2010:160, 2024:230, 2050:377, 2075:495, 2100:546 } },
+  { name: "Brazil", code: "br", color: "#05c46b", pop: { 1950:54, 1960:72, 1970:95, 1980:121, 1990:150, 2000:175, 2010:196, 2024:216, 2050:230, 2075:214, 2100:185 } },
+  { name: "Bangladesh", code: "bd", color: "#f368e0", pop: { 1950:39, 1960:48, 1970:65, 1980:81, 1990:106, 2000:129, 2010:148, 2024:173, 2050:203, 2075:192, 2100:162 } },
+  { name: "Russia", code: "ru", color: "#ffda79", pop: { 1950:102, 1960:119, 1970:130, 1980:138, 1990:148, 2000:146, 2010:143, 2024:144, 2050:132, 2075:122, 2100:112 } },
+  { name: "Mexico", code: "mx", color: "#0fb9b1", pop: { 1950:28, 1960:38, 1970:52, 1980:67, 1990:83, 2000:97, 2010:112, 2024:130, 2050:143, 2075:135, 2100:115 } },
+  { name: "Ethiopia", code: "et", color: "#fa8231", pop: { 1950:18, 1960:22, 1970:28, 1980:35, 1990:48, 2000:66, 2010:87, 2024:130, 2050:213, 2075:284, 2100:323 } },
+  { name: "Japan", code: "jp", color: "#a4b0be", pop: { 1950:83, 1960:93, 1970:104, 1980:117, 1990:123, 2000:126, 2010:128, 2024:124, 2050:104, 2075:87, 2100:73 } },
+  { name: "Philippines", code: "ph", color: "#3742fa", pop: { 1950:18, 1960:26, 1970:35, 1980:47, 1990:61, 2000:77, 2010:93, 2024:117, 2050:153, 2075:166, 2100:164 } },
+  { name: "Egypt", code: "eg", color: "#eccc68", pop: { 1950:21, 1960:27, 1970:34, 1980:43, 1990:56, 2000:71, 2010:84, 2024:113, 2050:160, 2075:193, 2100:205 } },
+  { name: "DR Congo", code: "cd", color: "#9b59b6", pop: { 1950:12, 1960:15, 1970:20, 1980:26, 1990:34, 2000:47, 2010:64, 2024:105, 2050:215, 2075:332, 2100:431 } },
+  { name: "Vietnam", code: "vn", color: "#e55039", pop: { 1950:25, 1960:32, 1970:43, 1980:54, 1990:68, 2000:79, 2010:87, 2024:100, 2050:107, 2075:102, 2100:91 } },
+  { name: "Iran", code: "ir", color: "#78e08f", pop: { 1950:17, 1960:21, 1970:28, 1980:38, 1990:56, 2000:65, 2010:73, 2024:89, 2050:98, 2075:90, 2100:79 } },
+  { name: "Turkey", code: "tr", color: "#b71540", pop: { 1950:21, 1960:27, 1970:34, 1980:43, 1990:53, 2000:63, 2010:72, 2024:86, 2050:95, 2075:92, 2100:82 } },
+  { name: "Germany", code: "de", color: "#f8c291", pop: { 1950:70, 1960:72, 1970:78, 1980:78, 1990:79, 2000:82, 2010:81, 2024:84, 2050:80, 2075:77, 2100:74 } },
+  { name: "Tanzania", code: "tz", color: "#f6b93b", pop: { 1950:7, 1960:10, 1970:13, 1980:18, 1990:25, 2000:34, 2010:46, 2024:67, 2050:135, 2075:202, 2100:244 } },
+  { name: "UK", code: "gb", color: "#4a69bd", pop: { 1950:50, 1960:52, 1970:55, 1980:56, 1990:57, 2000:58, 2010:62, 2024:68, 2050:71, 2075:72, 2100:70 } },
+  { name: "France", code: "fr", color: "#60a3bc", pop: { 1950:41, 1960:45, 1970:50, 1980:53, 1990:56, 2000:58, 2010:62, 2024:66, 2050:66, 2075:65, 2100:63 } },
+  { name: "Italy", code: "it", color: "#82ccdd", pop: { 1950:46, 1960:50, 1970:53, 1980:56, 1990:56, 2000:56, 2010:59, 2024:59, 2050:52, 2075:45, 2100:39 } },
+  { name: "Thailand", code: "th", color: "#b8e994", pop: { 1950:20, 1960:27, 1970:36, 1980:47, 1990:56, 2000:62, 2010:67, 2024:71, 2050:65, 2075:55, 2100:46 } },
+  { name: "Ukraine", code: "ua", color: "#fbc531", pop: { 1950:37, 1960:42, 1970:47, 1980:50, 1990:51, 2000:49, 2010:45, 2024:37, 2050:30, 2075:24, 2100:18 } }
+];
+
+function getPopAtYear(country, year) {
+  const years = Object.keys(country.pop).map(Number).sort((a,b)=>a-b);
+  if (year <= years[0]) return country.pop[years[0]];
+  if (year >= years[years.length-1]) return country.pop[years[years.length-1]];
+  for (let i = 0; i < years.length - 1; i++) {
+    let y1 = years[i], y2 = years[i+1];
+    if (year >= y1 && year <= y2) return country.pop[y1] + ((year - y1) / (y2 - y1)) * (country.pop[y2] - country.pop[y1]);
+  }
+}
+
+let raceYear = 1950, racePlaying = false, raceStartTime = null, raceStartPlayback = 1950, raceAnimId = null;
+let raceBarsData = [];
+
+function initRace() {
+  const wrapper = document.getElementById("barsWrapper");
+  raceRawData.forEach(d => {
+    const el = document.createElement("div");
+    el.className = "bar-row";
+    
+    el.innerHTML = `
+      <div class="bar-label">${d.name} <span class="fi fi-${d.code}"></span></div>
+      <div class="bar-track"><div class="bar-fill" style="background: ${d.color}"></div><div class="bar-val"></div></div>
+    `;
+    
+    wrapper.appendChild(el);
+    raceBarsData.push({ ...d, el: el, fill: el.querySelector(".bar-fill"), val: el.querySelector(".bar-val"), currentY: 450, currentOpacity: 0 });
+  });
+
+  document.getElementById("playBtn").addEventListener("click", (e) => {
+    if (racePlaying) { racePlaying = false; e.target.innerText = "▶"; cancelAnimationFrame(raceAnimId); } 
+    else {
+      if (raceYear >= 2100) raceYear = 1950;
+      racePlaying = true; e.target.innerText = "⏸";
+      raceStartPlayback = raceYear; raceStartTime = performance.now();
+      raceAnimId = requestAnimationFrame(tickRace);
+    }
+  });
+
+  document.getElementById("timeSliderRace").addEventListener("input", (e) => {
+    raceYear = parseFloat(e.target.value); raceStartPlayback = raceYear;
+    if (racePlaying) raceStartTime = performance.now();
+    renderRaceFrame();
+    if (raceYear < 2100 && !racePlaying) document.getElementById("playBtn").innerText = "▶";
+  });
+
+  for(let i=0; i<30; i++) renderRaceFrame(); 
+}
+
+function renderRaceFrame() {
+  raceBarsData.forEach(d => { d.currentPop = getPopAtYear(d, raceYear); });
+  const sorted = [...raceBarsData].sort((a, b) => b.currentPop - a.currentPop);
+  const maxPop = sorted[0].currentPop;
+  
+  sorted.forEach((d, index) => {
+    let targetY = index * 26; 
+    let targetOpacity = 1;
+    if (index >= 15) { targetOpacity = 0; targetY = 15 * 26 + 20; }
+    
+    d.currentY += (targetY - d.currentY) * 0.15;
+    d.currentOpacity += (targetOpacity - d.currentOpacity) * 0.15;
+    
+    d.el.style.transform = `translateY(${d.currentY}px)`;
+    d.el.style.opacity = d.currentOpacity;
+    
+    if (d.currentOpacity > 0.01) {
+      d.fill.style.width = Math.max(0.5, (d.currentPop / maxPop) * 100) + "%";
+      d.val.innerText = Math.round(d.currentPop).toLocaleString() + "M";
+    }
+  });
+  document.getElementById("bgYearRace").innerText = Math.floor(raceYear);
+  document.getElementById("timeSliderRace").value = raceYear;
+}
+
+function tickRace(timestamp) {
+  if (!racePlaying) return;
+  const elapsedSec = (timestamp - raceStartTime) / 1000;
+  raceYear = raceStartPlayback + (elapsedSec * (150 / 22.5)); 
+  if (raceYear >= 2100) { raceYear = 2100; racePlaying = false; document.getElementById("playBtn").innerText = "↻"; }
+  renderRaceFrame();
+  if (racePlaying) raceAnimId = requestAnimationFrame(tickRace);
+}
+
+// ═══ SLIDER FILL ═══
+function uFill(fId,mE,xE,tMin,tMax){const lo=+mE.value,hi=+xE.value;const pL=(lo-tMin)/(tMax-tMin)*100,pH=(hi-tMin)/(tMax-tMin)*100;document.getElementById(fId).style.left=pL+'%';document.getElementById(fId).style.width=(pH-pL)+'%';}
+function dSlide(){const m=document.getElementById('dMin'),x=document.getElementById('dMax');let lo=+m.value,hi=+x.value;if(lo>hi){m.value=hi;lo=hi;}S.dLo=lo;S.dHi=hi;document.getElementById('dYL').textContent=lo;document.getElementById('dYH').textContent=hi;uFill('dFill',m,x,1800,2024);rDesc(S.r);}
+function pSlide(){const m=document.getElementById('pMin'),x=document.getElementById('pMax');let lo=+m.value,hi=+x.value;if(lo>hi){m.value=hi;lo=hi;}S.pLo=lo;S.pHi=hi;document.getElementById('pYL').textContent=lo;document.getElementById('pYH').textContent=hi;uFill('pFill',m,x,2024,2100);rPred(S.r);}
+
+// ═══ GLOBAL REGION HANDLER ═══
+function setGlobalRegion(reg, btn) {
+  const sidebar = document.querySelector('.sidebar');
+  sidebar.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  S.r = reg; rDesc(reg); rPred(reg); rPres(reg);
+}
+
+// ═══ TOPOLOGY FETCH FOR HEATMAP ═══
+let topoFeatures = null;
+if (window.ChartGeo && window.topojson) {
+  fetch('https://unpkg.com/world-atlas/countries-50m.json')
+    .then(r => r.json())
+    .then(world => {
+      topoFeatures = topojson.feature(world, world.objects.countries).features;
+      rOverviewMap();
+    });
+}
+
+function rOverviewMap() {
+  if (!topoFeatures) return;
+  const heatData = {
+    // Standard names
+    'Afghanistan': 42.2, 'Albania': 2.8, 'Algeria': 45.6, 'Angola': 36.7, 'Antarctica': 0, 
+    'Argentina': 46.6, 'Armenia': 2.8, 'Australia': 26.6, 'Austria': 9.1, 'Azerbaijan': 10.4,
+    'Bahamas': 0.4, 'Bangladesh': 173.0, 'Belarus': 9.2, 'Belgium': 11.7, 'Belize': 0.4, 
+    'Benin': 13.7, 'Bhutan': 0.8, 'Bolivia': 12.4, 'Bosnia and Herzegovina': 3.2, 
+    'Botswana': 2.7, 'Brazil': 216.4, 'Brunei': 0.5, 'Brunei Darussalam': 0.5, 'Bulgaria': 6.7, 
+    'Burkina Faso': 23.3, 'Burundi': 13.2, 'Cambodia': 16.9, 'Cameroon': 28.6, 'Canada': 40.1, 
+    'Central African Republic': 5.7, 'Chad': 18.3, 'Chile': 19.6, 'China': 1425.6, 
+    'Colombia': 52.7, 'Congo': 6.1, 'Republic of the Congo': 6.1, 
+    'Democratic Republic of the Congo': 102.3, 'Costa Rica': 5.2, 'Croatia': 3.8, 'Cuba': 11.2, 
+    'Cyprus': 1.3, 'Northern Cyprus': 0.4, 'Czechia': 10.9, 'Denmark': 5.9, 'Djibouti': 1.1, 
+    'Dominican Republic': 11.3, 'Ecuador': 18.2, 'Egypt': 112.7, 'El Salvador': 6.3, 
+    'Equatorial Guinea': 1.7, 'Eritrea': 3.7, 'Estonia': 1.4, 'Eswatini': 1.2, 'Ethiopia': 126.5,
+    'Falkland Islands': 0.003, 'Fiji': 0.9, 'Finland': 5.6, 'France': 68.0, 
+    'Gabon': 2.4, 'Gambia': 2.8, 'Georgia': 3.7, 'Germany': 83.3, 'Ghana': 34.1, 'Greece': 10.4, 
+    'Greenland': 0.06, 'Guatemala': 18.1, 'Guinea': 14.2, 'Guinea-Bissau': 2.1, 'Guyana': 0.8,
+    'Haiti': 11.7, 'Honduras': 10.6, 'Hungary': 9.6, 'Iceland': 0.4, 'India': 1428.6, 
+    'Indonesia': 277.5, 'Iran': 89.2, 'Iraq': 45.5, 'Ireland': 5.3, 'Israel': 9.8, 'Italy': 58.9, 
+    'Ivory Coast': 28.9, "Côte d'Ivoire": 28.9, 'Jamaica': 2.8, 'Japan': 123.3, 'Jordan': 11.3, 
+    'Kazakhstan': 19.9, 'Kenya': 55.1, 'Kosovo': 1.8, 'Kuwait': 4.3, 'Kyrgyzstan': 7.1,
+    'Laos': 7.6, 'Latvia': 1.9, 'Lebanon': 5.3, 'Lesotho': 2.3, 'Liberia': 5.4, 'Libya': 6.9, 
+    'Lithuania': 2.8, 'Luxembourg': 0.7, 'Macedonia': 1.8, 'North Macedonia': 1.8, 
+    'Madagascar': 30.3, 'Malawi': 20.9, 'Malaysia': 34.3, 'Mali': 23.3, 'Mauritania': 4.9, 
+    'Mexico': 128.5, 'Moldova': 2.5, 'Mongolia': 3.4, 'Montenegro': 0.6, 'Morocco': 37.8, 
+    'Mozambique': 33.9, 'Myanmar': 54.6, 'Namibia': 3.0, 'Nepal': 30.9, 'Netherlands': 17.9, 
+    'New Caledonia': 0.3, 'New Zealand': 5.2, 'Nicaragua': 7.0, 'Niger': 27.2, 'Nigeria': 223.8, 
+    'North Korea': 26.2, 'Norway': 5.5, 'Oman': 4.6, 'Pakistan': 240.5, 'Palestine': 5.4, 
+    'Panama': 4.5, 'Papua New Guinea': 10.3, 'Paraguay': 6.9, 'Peru': 34.4, 'Philippines': 117.3, 
+    'Poland': 37.7, 'Portugal': 10.5, 'Puerto Rico': 3.3, 'Qatar': 2.7, 'Romania': 19.0, 
+    'Russia': 143.8, 'Rwanda': 14.1, 'Saudi Arabia': 36.9, 'Senegal': 17.8, 'Serbia': 7.1, 
+    'Sierra Leone': 8.8, 'Slovakia': 5.4, 'Slovenia': 2.1, 'Solomon Islands': 0.8, 
+    'Somalia': 18.1, 'Somaliland': 3.5, 'South Africa': 60.4, 'South Korea': 51.7, 
+    'South Sudan': 11.1, 'Spain': 47.5, 'Sri Lanka': 21.9, 'Sudan': 48.1, 'Suriname': 0.6, 
+    'Sweden': 10.5, 'Switzerland': 8.8, 'Syria': 23.2, 'Taiwan': 23.9, 'Tajikistan': 10.1, 
+    'Tanzania': 67.4, 'Thailand': 71.8, 'Timor-Leste': 1.3, 'Togo': 9.1, 
+    'Trinidad and Tobago': 1.5, 'Tunisia': 12.5, 'Turkey': 85.8, 'Turkmenistan': 6.5,
+    'Uganda': 48.6, 'Ukraine': 37.0, 'United Arab Emirates': 9.5, 'United Kingdom': 68.3, 
+    'United States of America': 339.9, 'Uruguay': 3.4, 'Uzbekistan': 36.4, 'Vanuatu': 0.3, 
+    'Venezuela': 28.8, 'Vietnam': 98.9, 'Western Sahara': 0.6, 'Yemen': 34.4, 'Zambia': 20.6, 
+    'Zimbabwe': 16.7,
+
+    // ALIASES SPECIFICALLY FOR TOPOJSON MAPPING
+    'Dem. Rep. Congo': 102.3,
+    'S. Sudan': 11.1,
+    'Central African Rep.': 5.7,
+    'Dominican Rep.': 11.3,
+    'Eq. Guinea': 1.7,
+    'Bosnia and Herz.': 3.2,
+    'Dem. Rep. Korea': 26.2,
+    'Republic of Korea': 51.7,
+    'W. Sahara': 0.6,
+    'United Republic of Tanzania': 67.4
+  };
+
+  mc('c_heatmap', {
+    type: 'choropleth',
+    data: {
+      labels: topoFeatures.map(d => d.properties.name),
+      datasets: [{
+        label: 'Population (Millions)',
+        data: topoFeatures.map(d => ({ feature: d, value: heatData[d.properties.name] || null }))
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, showOutline: true, showGraticule: true,
+      plugins: { 
+        legend: { display: false },
+        tooltip: { callbacks: { label: (context) => { const val = context.raw.value; return val ? `${context.raw.feature.properties.name}: ${val} M` : `${context.raw.feature.properties.name}: No Data`; } } }
+      }, 
+      scales: { 
+        projection: { axis: 'x', projection: 'equalEarth' },
+        color: {
+          axis: 'x', missing: '#2a3142', 
+          interpolate: (value) => {
+            const curve = Math.pow(value, 0.25); 
+            const hue = (1 - curve) * 60; 
+            const lightness = 40 + ((1 - curve) * 20); 
+            return `hsl(${hue}, 100%, ${lightness}%)`;
+          }
+        }
+      }
+    }
+  });
+}
+
+// ═══ RENDER OVERVIEW ═══
+function rOverview() {
+  mc('c_share', {
+    type: 'pie',
+    data: {
+      labels: ['Asia', 'Africa', 'Americas', 'Europe', 'Oceania'],
+      datasets: [{ data: [4.75, 1.46, 1.04, 0.742, 0.046], backgroundColor: [C.red, C.purple, C.blue, C.yellow, C.teal], borderColor: '#151922', borderWidth: 2 }]
+    },
+    options: { 
+      responsive: true, maintainAspectRatio: false, 
+      plugins: { 
+        legend: { position: 'bottom', labels: { color: '#e4e7ec', boxWidth: 10 } },
+        datalabels: {
+          display: true, color: '#fff', font: { weight: 'bold', size: 12, family: "'DM Sans', sans-serif" },
+          formatter: (value, ctx) => {
+            let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+            let percentage = (value * 100 / sum).toFixed(1) + "%";
+            return (value / sum) > 0.03 ? percentage : '';
+          }
+        }
+      } 
+    }
+  });
+}
+
+// ═══ RENDER DESC ═══
+function rDesc(r){const d=D.desc[r];
+for(let i=0;i<4;i++){document.getElementById('k'+(i+1)+'l').textContent=d.k[i*3];document.getElementById('k'+(i+1)+'v').textContent=d.k[i*3+1];document.getElementById('k'+(i+1)+'d').textContent=d.k[i*3+2];}
+const p=fR(d.pL,d.pD);$('dt1',`Population Growth — ${r}`);
+mc('c_pop',{type:'line',data:{labels:p.l,datasets:[{label:'B',data:p.d[0],borderColor:C.teal,backgroundColor:C.tealA,fill:true,tension:.4,pointRadius:4,pointBackgroundColor:C.teal}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,title:{display:true,text:'Billions'}}}}});
+const g=fR(d.gL,d.gD);$('dt2',`Growth Rate — ${r}`);
+mc('c_gr',{type:'line',data:{labels:g.l,datasets:[{label:'%',data:g.d[0],borderColor:C.red,backgroundColor:C.redA,fill:true,tension:.35,pointRadius:4,pointBackgroundColor:C.red}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'%'}}}}});
+const u=fR(d.uL,d.uU,d.uR);$('dt3',`Urban vs Rural — ${r}`);
+mc('c_ur',{type:'line',data:{labels:u.l,datasets:[{label:'Urban %',data:u.d[0],borderColor:C.teal,backgroundColor:C.tealA,fill:true,tension:.3},{label:'Rural %',data:u.d[1],borderColor:C.orange,backgroundColor:'rgba(253,203,110,0.12)',fill:true,tension:.3}]},options:{responsive:true,scales:{y:{max:100,title:{display:true,text:'%'}}}}});
+const a=fR(d.aL,d.a0,d.a1,d.a2);$('dt4',`Age Structure — ${r}`);
+mc('c_age',{type:'bar',data:{labels:a.l,datasets:[{label:'0–14',data:a.d[0],backgroundColor:C.yellow},{label:'15–64',data:a.d[1],backgroundColor:C.blue},{label:'65+',data:a.d[2],backgroundColor:C.red}]},options:{responsive:true,scales:{x:{stacked:true},y:{stacked:true,max:100,title:{display:true,text:'% of total'}}}}});
+const f=fR(d.fL,d.fD);$('dt5',`Fertility Rate — ${r}`);
+mc('c_fert',{type:'line',data:{labels:f.l,datasets:[{label:'Births/woman',data:f.d[0],borderColor:C.purple,backgroundColor:C.purpleA,fill:true,tension:.3,pointRadius:4,pointBackgroundColor:C.purple},{label:'Replacement (2.1)',data:f.l.map(()=>2.1),borderColor:'rgba(255,255,255,0.2)',borderDash:[4,4],pointRadius:0,fill:false}]},options:{responsive:true,scales:{y:{title:{display:true,text:'Births/woman'},min:0}}}});
+const ed=fR(d.edL,d.edD);$('dt7',`Education Levels — ${r}`);
+mc('c_edu_desc',{type:'line',data:{labels:ed.l,datasets:[{label:'Mean Years of Schooling',data:ed.d[0],borderColor:C.green,backgroundColor:C.green+'33',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:C.green}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'Years'},min:0}}}});
+const gdp=fR(d.gdpL,d.gdpD);$('dt8',`GDP per Capita — ${r}`);
+mc('c_gdp_desc',{type:'line',data:{labels:gdp.l,datasets:[{label:'GDP per Capita',data:gdp.d[0],borderColor:C.orange,backgroundColor:'rgba(253,203,110,0.12)',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:C.orange}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'Constant USD'},min:0}}}});
+
+$('dt9',`Gender Ratio (2024) — ${r}`);
+mc('c_gender',{
+  type:'pie',
+  data:{
+    labels:['Male', 'Female'],
+    datasets:[{data:d.gnD,backgroundColor:[C.blue, C.pink],borderColor:'#151922',borderWidth:2}]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{position:'bottom',labels:{color:'#e4e7ec',boxWidth:10}},
+      datalabels: {
+        display: true, color: '#fff', font: { weight: 'bold', size: 14, family: "'DM Sans', sans-serif" },
+        formatter: (value) => value + '%'
+      }
+    }
+  }
+});
+
+$('dt6',`Top Countries — ${r} (2024)`);
+// HEIGHT OF THIS CHART CONTAINER NOW CONTROLS HOW TIGHT THE BARS ARE
+mc('c_top',{type:'bar',data:{labels:d.tL,datasets:[{data:d.tD,backgroundColor:d.tC}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'Millions'}}}}});
+}
+
+// ═══ RENDER PRED ═══
+function rPred(r){const d=D.pred[r];
+const j=fP(d.jL,d.jH,d.jM,d.jLo);$('pt1',`Population Projection — ${r}`);
+mc('c_proj',{type:'line',data:{labels:j.l,datasets:[{label:'High',data:j.d[0],borderColor:C.red,borderDash:[6,3],backgroundColor:'transparent',tension:.3,pointRadius:3},{label:'Medium',data:j.d[1],borderColor:C.purple,backgroundColor:C.purpleA,fill:true,tension:.3,pointRadius:3},{label:'Low',data:j.d[2],borderColor:C.yellow,borderDash:[6,3],backgroundColor:'transparent',tension:.3,pointRadius:3}]},options:{responsive:true,scales:{y:{title:{display:true,text:'Billions'}}}}});
+const dp=fP(d.dL,d.dD);$('pt2',`Old-Age Dependency — ${r}`);
+mc('c_dep',{type:'line',data:{labels:dp.l,datasets:[{label:'%',data:dp.d[0],borderColor:C.teal,backgroundColor:C.tealA,fill:true,tension:.3,pointRadius:4,pointBackgroundColor:C.teal}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{title:{display:true,text:'65+ / 15–64 (%)'}}}}});
+$('pt3',`Age Distribution 2024 vs 2050 — ${r}`);
+mc('c_pyr',{type:'bar',data:{labels:d.yL,datasets:[{label:'2024',data:d.y24,backgroundColor:'rgba(78,205,196,0.6)'},{label:'2050',data:d.y50,backgroundColor:'rgba(108,92,231,0.5)'}]},options:{responsive:true,indexAxis:'y',scales:{x:{title:{display:true,text:'Millions'}}}}});
+const fp=fP(d.fL,d.fD);$('pt4',`Projected Fertility — ${r}`);
+mc('c_fp',{type:'line',data:{labels:fp.l,datasets:[{label:'Fertility',data:fp.d[0],borderColor:C.pink,backgroundColor:'rgba(253,121,168,0.12)',fill:true,tension:.3,pointRadius:4,pointBackgroundColor:C.pink},{label:'Replacement',data:fp.l.map(()=>2.1),borderColor:'rgba(255,255,255,0.25)',borderDash:[4,4],pointRadius:0,fill:false}]},options:{responsive:true,scales:{y:{title:{display:true,text:'Births/woman'},min:0}}}});
+}
+
+// ═══ RENDER PRES ═══
+function buildScatterOpts(xTitle, yTitle, xMin, xMax, yMin, yMax, xType='linear') {
+  return {
+    responsive: true,
+    scales: {
+      x: { type: xType, title: { display: true, text: xTitle }, min: xMin, max: xMax },
+      y: { title: { display: true, text: yTitle }, min: yMin, max: yMax }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.x}, ${ctx.raw.y}` } }
+    }
+  };
+}
+
+function rPres(r) {
+  // Helper to dynamically filter the World data if region-specific data is requested
+  const getPresData = (key) => {
+    const worldData = D.pres.World[key];
+    if (r === 'World') return worldData;
+    return worldData.filter(item => item.reg === r);
+  };
+
+  const urb_pm25 = getPresData('urb_pm25');
+  if (urb_pm25.length > 0) {
+    mc('c_urb_pm25', {
+      type: 'bubble',
+      data: { datasets: urb_pm25.map(c => ({ label: c.l, data: [{x: c.x, y: c.y, r: c.r || 6}], backgroundColor: c.c })) },
+      options: buildScatterOpts('Urbanization Rate (%)', 'PM2.5 (µg/m³)', 10, 100, 0, 80)
+    });
+  } else if (ch['c_urb_pm25']) { ch['c_urb_pm25'].destroy(); }
+
+  const gdp = getPresData('gdp');
+  if (gdp.length > 0) {
+    mc('c_gdp', {
+      type: 'bubble',
+      data: { datasets: gdp.map(c => ({ label: c.l, data: [{x: c.x, y: c.y, r: 6}], backgroundColor: c.c })) },
+      options: buildScatterOpts('GDP/capita (USD, log)', 'Fertility (Births/woman)', 400, 100000, 0, 6, 'logarithmic')
+    });
+  } else if (ch['c_gdp']) { ch['c_gdp'].destroy(); }
+
+  const edu = getPresData('edu');
+  if (edu.length > 0) {
+    mc('c_edu', {
+      type: 'bubble',
+      data: { datasets: edu.map(c => ({ label: c.l, data: [{x: c.x, y: c.y, r: 6}], backgroundColor: c.c })) },
+      options: buildScatterOpts('Female schooling (yrs)', 'Fertility (Births/woman)', 0, 15, 0, 6)
+    });
+  } else if (ch['c_edu']) { ch['c_edu'].destroy(); }
+
+  const hlt = getPresData('hlt');
+  if (hlt.length > 0) {
+    mc('c_hlt', {
+      type: 'bubble',
+      data: { datasets: hlt.map(c => ({ label: c.l, data: [{x: c.x, y: c.y, r: 6}], backgroundColor: c.c })) },
+      options: buildScatterOpts('Health $/capita (log)', 'Life expectancy', 20, 15000, 50, 85, 'logarithmic')
+    });
+  } else if (ch['c_hlt']) { ch['c_hlt'].destroy(); }
+
+  const mig = getPresData('mig');
+  if (mig.length > 0) {
+    mc('c_mig', {
+      type: 'bubble',
+      data: { datasets: mig.map(c => ({ label: c.l, data: [{x: c.x, y: c.y, r: 6}], backgroundColor: c.c })) },
+      options: buildScatterOpts('Natural Growth Rate (per 1,000)', 'Net Migration Rate (per 1,000)', -10, 30, -10, 15)
+    });
+  } else if (ch['c_mig']) { ch['c_mig'].destroy(); } 
+
+  const dem = getPresData('dem');
+  if (dem.length > 0) {
+    mc('c_dem', {
+      type: 'bubble',
+      data: { datasets: dem.map(c => ({ label: c.l, data: [{x: c.x, y: c.y, r: 6}], backgroundColor: c.c })) },
+      options: buildScatterOpts('Median Age', 'Infant Mortality Rate (per 1,000)', 15, 55, 0, 75)
+    });
+  } else if (ch['c_dem']) { ch['c_dem'].destroy(); }
+}
+
+function $(id,html){document.getElementById(id).innerHTML=html;}
+
+// Init
+uFill('dFill',document.getElementById('dMin'),document.getElementById('dMax'),1800,2024);
+uFill('pFill',document.getElementById('pMin'),document.getElementById('pMax'),2024,2100);
+initRace();
+rOverview();
+rDesc('World');rPred('World');rPres('World');
+</script>
+</body>
+</html>
